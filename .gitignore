@@ -218,3 +218,43 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# C/C++ build (native offline-server library + patcher)
+# ---------------------------------------------------------------------------
+*.o
+*.obj
+*.lo
+*.slo
+*.gch
+*.pch
+*.ilk
+*.pdb
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# fetched by setup-deps / produced by the build
+implementation-cpp/external/
+implementation-cpp/build-android/
+implementation-cpp/build-ios/
+implementation-cpp/output/
+implementation-cpp/.theos/
+implementation-cpp/packages/
+implementation-cpp/compile_commands.json
+
+# patcher scratch + bundled game data/assets + patched packages
+.temp/
+output/
+data/
+assets/
+*.ipa
+*.apk
+
+# signing keystore + local secrets — do NOT commit to a public repo
+*.keystore
+secrets.json

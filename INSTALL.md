@@ -2,9 +2,11 @@
 > [!IMPORTANT]
 > **DO NOT EXTRACT the zip.**
 
-# UNOFFICIAL FAN-MADE GUIDE CAN BE FOUND HERE: https://patchednexus.win/glsk/6
+<!-- # UNOFFICIAL FAN-MADE GUIDE CAN BE FOUND HERE: https://patchednexus.win/glsk/6 -->
 > [!IMPORTANT]
-> We do NOT provide help or support for installing GridlessSekai 6 beyond these instructions. Do not open any Issues to ask for help, unless it is a bug.
+> We do NOT provide help or support for installing GridlessDreams beyond these instructions. Do not open any Issues to ask for help, unless it is a bug.
+
+# WIP WIP WIP project NOT SET UP!
 
 ## Android
 
@@ -16,16 +18,16 @@
 
 Download the assets (at least `base_android.zip`) to your device's Downloads folder, then copy it to the app's data directory using one of these methods:
 
-NOTE: experienced users, you just need to move the `assets_android.zip` to `/sdcard/Android/data/com.utsk.gridlesssekai6/files/`. You can do this with any method you want (such as root).
+NOTE: experienced users, you just need to move the `assets_android.zip` to `/sdcard/Android/data/com.utsk.gridlessdreams/files/`. You can do this with any method you want (such as root).
 
 > [!TIP]
-> The path `/sdcard/Android/obb/com.utsk.gridlesssekai6/` is also supported. Use this if needed.
+> The path `/sdcard/Android/obb/com.utsk.gridlessdreams/` is also supported. Use this if needed.
 
 **Option A: ADB (PC required)**
 
 Download `base_android.zip` to your PC, then run:
 ```
-adb push base_android.zip /sdcard/Android/data/com.utsk.gridlesssekai6/files/base_android.zip
+adb push base_android.zip /sdcard/Android/data/com.utsk.gridlessdreams/files/base_android.zip
 ```
 (replace `base_android.zip` in the last command with whatever file you're installing).
 
@@ -33,7 +35,7 @@ adb push base_android.zip /sdcard/Android/data/com.utsk.gridlesssekai6/files/bas
 1. Download the assets on your device (at least `base_android.zip`)
 2. 2. Install [Shizuku](https://shizuku.rikka.app) and start it via Wireless Debugging ([guide](https://shizuku.rikka.app/guide/setup/#start-via-wireless-debugging))
 3. Install ZArchiver (or another Shizuku-compatible file manager)
-4. Move the file from `Downloads` to `/sdcard/Android/data/com.utsk.gridlesssekai6/files`
+4. Move the file from `Downloads` to `/sdcard/Android/data/com.utsk.gridlessdreams/files`
 
 **Option C: Termux (no PC, no root)**
 1. Download the assets on your device (at least `base_android.zip`)
@@ -43,7 +45,7 @@ adb push base_android.zip /sdcard/Android/data/com.utsk.gridlesssekai6/files/bas
    pkg install android-tools
    adb pair localhost:<port>   # use pairing code from Settings
    adb connect localhost:<port>
-   adb shell run-as com.utsk.gridlesssekai6 cp /sdcard/Download/base_android.zip ./files/base_android.zip
+   adb shell run-as com.utsk.gridlessdreams cp /sdcard/Download/base_android.zip ./files/base_android.zip
    ```
    (replace `base_android.zip` in the last command with whatever file you're installing).
 
@@ -67,7 +69,7 @@ Example YouTube searches: `sideload ios no pc`, `sideload ios impactor` (require
 #### 2. Move assets
 - Download the assets (at least `base_ios.zip`)
 - Open the **Files** app
-- Navigate to **On My iPhone** -> **GridlessSekai6**
+- Navigate to **On My iPhone** -> **gridlessdreams**
   - If you don't see it, make sure File Sharing is enabled (most sideloaders have a "Force File Sharing" option)
 - Move your downloaded files here.
 

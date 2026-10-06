@@ -23,28 +23,28 @@ pkg install unzip
 termux-setup-storage
 cd ~/storage/downloads
 unzip -o bugreport-*.zip -d bugreport
-grep -a "UTSK Mod Framework" bugreport/dumpstate.txt > utsk_log.txt
+grep -a "UTSK GD" bugreport/dumpstate.txt > utsk_log.txt
 grep -a -E "Fatal signal|E CRASH|FATAL EXCEPTION" bugreport/dumpstate.txt > crash_log.txt
 ```
 
 ### Linux / Mac
 ```bash
 unzip -o bugreport-*.zip -d bugreport
-grep -a "UTSK Mod Framework" bugreport/dumpstate.txt > utsk_log.txt
+grep -a "UTSK GD" bugreport/dumpstate.txt > utsk_log.txt
 grep -a -E "Fatal signal|E CRASH|FATAL EXCEPTION" bugreport/dumpstate.txt > crash_log.txt
 ```
 
 ### Windows (POWERSHELL)
 ```powershell
 Expand-Archive bugreport-*.zip -DestinationPath bugreport
-Select-String -Path bugreport\dumpstate.txt -Pattern "UTSK Mod Framework" | ForEach-Object { $_.Line } | Out-File utsk_log.txt
+Select-String -Path bugreport\dumpstate.txt -Pattern "UTSK GD" | ForEach-Object { $_.Line } | Out-File utsk_log.txt
 Select-String -Path bugreport\dumpstate.txt -Pattern "Fatal signal|E CRASH|FATAL EXCEPTION" | ForEach-Object { $_.Line } | Out-File crash_log.txt
 ```
 
 ### Manually (no Termux)
 1. Extract the .zip with any file manager or archive app
 2. Open `dumpstate.txt` in a text editor (it's huge, 200MB+, so use one that can handle big files)
-3. Search for `UTSK Mod Framework` and `Fatal signal`
+3. Search for `UTSK GD` and `Fatal signal`
 4. Copy the lines around where the issue happened (or screenshot them)
 
 ### Tombstones
@@ -67,7 +67,7 @@ sed -i 's/PKG/com.termux/g' ~/rish
 ```
 5. Run `sh ~/rish -c id` and tap Allow on the Shizuku prompt. It should print `uid=2000(shell)`
 6. Close the game on your phone
-7. Run `sh ~/rish -c logcat | grep --line-buffered "UTSK Mod Framework" | tee utsk_log.txt`
+7. Run `sh ~/rish -c logcat | grep --line-buffered "UTSK GD" | tee utsk_log.txt`
 8. Launch the game on your phone. Navigate to where the issue is occurring in game
 9. Press Ctrl+C in Termux when it's done, The logs are in `utsk_log.txt` (or copy the printed lines)
 
@@ -80,7 +80,7 @@ If the game crashed, also run `sh ~/rish -c "logcat -b crash -d" > crash_log.txt
 4. Install ADB (https://developer.android.com/tools/releases/platform-tools) on your PC and unzip it (Linux: `sudo apt install adb`, Mac: `brew install android-platform-tools` Termux: `pkg install android-tools`)
 5. Navigate to the platform-tools folder and open CMD (Windows) or any new terminal (Linux/Mac/Termux)
 6. Close the game on your phone
-7. Run `adb logcat | findstr /C:"UTSK Mod Framework"` (Windows) or `adb logcat | grep --line-buffered "UTSK Mod Framework" | tee utsk_log.txt` (Linux/Mac/Termux)
+7. Run `adb logcat | findstr /C:"UTSK GD"` (Windows) or `adb logcat | grep --line-buffered "UTSK GD" | tee utsk_log.txt` (Linux/Mac/Termux)
 8. Launch the game on your phone. Navigate to where the issue is occurring in game
 9. Copy the logs printed!
 
@@ -90,6 +90,6 @@ If the game crashed, also run `sh ~/rish -c "logcat -b crash -d" > crash_log.txt
 3. Install libimobiledevice (windows: https://github.com/jrjr/libimobiledevice-windows, there are other versions you can find on Google) and unzip it (Linux: `sudo apt install libimobiledevice-utils`, Mac: `brew install libimobiledevice`)
 4. Navigate to the suite path and open POWERSHELL (Windows) or a terminal (Linux/Mac)
 5. Close the game on your phone
-6. Run `./idevicesyslog | Select-String -Pattern "UTSK Mod Framework"` (Windows) or `idevicesyslog | grep --line-buffered "UTSK Mod Framework" | tee utsk_log.txt` (Linux/Mac/Termux)
+6. Run `./idevicesyslog | Select-String -Pattern "UTSK GD"` (Windows) or `idevicesyslog | grep --line-buffered "UTSK GD" | tee utsk_log.txt` (Linux/Mac/Termux)
 7. Launch the game on your phone. Navigate to where the issue is occurring in game
 8. Copy the logs printed!
