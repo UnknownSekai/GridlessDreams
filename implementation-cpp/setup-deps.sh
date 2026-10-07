@@ -47,6 +47,24 @@ if [ ! -f "external/miniz/miniz.h" ]; then
     cd ../..
 fi
 
+if [ ! -d "external/lz4" ]; then
+    echo "[*] Cloning lz4..."
+    git clone --depth 1 https://github.com/lz4/lz4.git external/lz4
+fi
+
+if [ ! -d "external/argon2" ]; then
+    echo "[*] Cloning argon2..."
+    git clone --depth 1 https://github.com/P-H-C/phc-winner-argon2.git external/argon2
+fi
+
+if [ ! -d "external/spookyhash" ]; then
+    echo "[*] Cloning spookyhash (Bob Jenkins SpookyV2, same source as the python spookyhash pkg)..."
+    git clone --depth 1 https://github.com/buhanec/spookyhash.git external/spookyhash
+fi
+
+# external/miniyaml and external/jwtcrypto are vendored (committed) single-purpose
+# libs -- nothing to fetch.
+
 # NDK - detect OS
 if [ ! -d "external/android-ndk-r26d" ]; then
     OS=$(uname -s)

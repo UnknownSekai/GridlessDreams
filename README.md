@@ -1,6 +1,7 @@
 ### ⚠️ Post content online at your own risk.
 ***This project is provided for educational purposes only, and is not affiliated with KMS, inc., Bandai Namco Filmworks, Egg Firm, or Sirius.***
-This project may receive infrequent updates.
+
+This project may receive infrequent updates. Issues and pull requests welcome.
 
 > [!IMPORTANT]
 > We do NOT provide help or support for installing GridlessDreams beyond these instructions. Do not open any Issues to ask for help, unless it is a bug.

@@ -1,5 +1,7 @@
 #include "httplib_config.h"
+#include "config.h"
 #include "db.h"
+#include "master_data.h"
 #include "routes.h"
 #include "platform.h"
 
@@ -21,7 +23,20 @@ void ssl_bypass_init();
 #define LOG(fmt, ...) printf("[GridlessDreams] " fmt "\n", ##__VA_ARGS__)
 #endif
 
-static constexpr int SERVER_PORT = 39047;
+static constexpr int SERVER_PORT = 39046;
+
+// live/course progression bookkeeping tables (app.py lifespan _PRESERVATION_TABLES),
+// adapted to SQLite: the Postgres ::jsonb casts are dropped, the jsonb column type is
+// kept so the row codec round-trips them as JSON.
+static const char* const PRESERVATION_TABLES[] = {
+    "CREATE TABLE IF NOT EXISTS preservation_live_context ("
+    "\"userId\" bigint PRIMARY KEY REFERENCES accounts(\"userId\") ON DELETE CASCADE, "
+    "mode text NOT NULL, \"masterId\" integer NOT NULL, "
+    "extra jsonb NOT NULL DEFAULT '{}')",
+    "CREATE TABLE IF NOT EXISTS preservation_course_run ("
+    "\"userId\" bigint PRIMARY KEY REFERENCES accounts(\"userId\") ON DELETE CASCADE, "
+    "data jsonb NOT NULL)",
+};
 
 static void wait_for_data() {
     for (int attempt = 1; ; attempt++) {
@@ -48,9 +63,13 @@ static void server_thread() {
 #ifdef __ANDROID__
     platform::init_android();
 #endif
-    std::thread(ssl_bypass_init).detach();
-
     wait_for_data();
+
+    // lifespan (app.py): config/constants -> master data -> db -> preservation tables
+    LOG("Loading config + master data...");
+    config::load();
+    constants::load();
+    master_data::load();
 
     LOG("Initializing database...");
     std::string db_path = platform::get_writable_dir() + "/offline.db";
@@ -58,10 +77,12 @@ static void server_thread() {
         LOG("DB init failed at %s", db_path.c_str());
         return;
     }
+    for (const char* sql : PRESERVATION_TABLES) db::execute(db::ExecutableQuery(sql));
+
+    std::thread(ssl_bypass_init).detach();
 
     LOG("Starting HTTP server...");
     httplib::Server svr;
-
     routes::setup(svr);
 
     LOG("Listening on http://127.0.0.1:%d", SERVER_PORT);

@@ -48,6 +48,24 @@ if not exist external\miniz (
     cd ..\..
 )
 
+if not exist external\lz4 (
+    echo [*] Cloning lz4...
+    git clone --depth 1 https://github.com/lz4/lz4.git external/lz4
+)
+
+if not exist external\argon2 (
+    echo [*] Cloning argon2...
+    git clone --depth 1 https://github.com/P-H-C/phc-winner-argon2.git external/argon2
+)
+
+if not exist external\spookyhash (
+    echo [*] Cloning spookyhash ^(Bob Jenkins SpookyV2, same source as the python spookyhash pkg^)...
+    git clone --depth 1 https://github.com/buhanec/spookyhash.git external/spookyhash
+)
+
+REM external\miniyaml and external\jwtcrypto are vendored (committed) single-purpose
+REM libs -- nothing to fetch.
+
 if not exist external\android-ndk-r26d (
     echo [*] Downloading Android NDK r26d ^(this may take a while^)...
     curl -L -o external\android-ndk-r26d-windows.zip https://dl.google.com/android/repository/android-ndk-r26d-windows.zip

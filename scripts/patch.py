@@ -1,29 +1,34 @@
 """
 Simplified patcher for GridlessDreams.
 
-Only patches game server URLs in global-metadata.dat to point to localhost.
-Supports APK/XAPK (Android) and IPA (iOS).
+Redirects the game to the local server, on BOTH Android (APK/XAPK) and iOS (IPA):
+  1. ApplicationConfig._apiEndPoint (the first-hop API host) -> http://127.0.0.1:<port>.
+     This value is NOT a global-metadata.dat string literal -- it is a serialized
+     MonoBehaviour string field inside Data/sharedassets0.assets (4-byte LE length +
+     UTF-8 + 4-byte align), so it is rewritten with UnityPy (which fixes up the asset
+     file's object offsets when the string length changes). Same asset on both platforms.
+     Every OTHER endpoint (CDN / realtime / ...) comes back from the local server's
+     POST /api/Environment response, so nothing else needs static patching.
+  2. SSL/verify + reachability + SetUrl static binary patches on the il2cpp binary (see below).
 
-APK: decrypts metadata, patches URLs, re-encrypts, rebuilds, signs.
-IPA: decrypts metadata, patches URLs, re-encrypts, repacks zip.
+APK: patches sharedassets0.assets, injects .so, rebuilds, signs.
+IPA: patches sharedassets0.assets, injects .dylib, repacks zip (sign separately).
 
-Also injects libdreams.so/.dylib into the binary.
+Requires: pip install UnityPy lief requests
 
 Usage:
-    python patch.py input.apk -o output.apk
+    python patch.py input.apk  -o output.apk
     python patch.py input.xapk -o output.apk
-    python patch.py input.ipa -o output.ipa
+    python patch.py input.ipa  -o output.ipa
 """
 
 import argparse
 import json
-import mmap
 import os
 import shutil
 import struct
 import sys
 import zipfile
-from io import BytesIO
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -31,22 +36,18 @@ PROJECT_DIR = SCRIPT_DIR.parent
 TEMP_DIR = PROJECT_DIR / ".temp"
 TOOLS_DIR = TEMP_DIR / "tools"
 
-LOCALHOST_PORT = 39047
+LOCALHOST_PORT = 39046
 # Modded-app package id (matches INSTALL.md) + display name.
 PACKAGE_NAME = "com.utsk.gridlessdreams"
 APP_NAME = "GridlessDreams"
 
-# METADATA
-METADATA_HDR = b"\xaf\x1b\xb1\xfa"
-KEY_LENGTHS = [128, 155]
-
-# URLs to rewrite in global-metadata.dat so the game talks to the local server.
-# GAME-SPECIFIC: find the target game's API/CDN hosts in its decrypted
-# global-metadata.dat string literals and map each to 127.0.0.1:{LOCALHOST_PORT}.
-# Example (replace with the real hosts for this game):
-#   "https://api.example-game.com/api/": f"http://127.0.0.1:{LOCALHOST_PORT}/api/",
-# TODO: fill this in. Empty = the patched game is not redirected anywhere.
-PATCH_URLS = {}
+# The first-hop API host (ApplicationConfig._apiEndPoint) -- the ONE value that redirects the
+# client to the local server. Every other endpoint (CDN / realtime / ...) is handed back by the
+# local server's POST /api/Environment response, so nothing else needs static patching. The host
+# lives in Data/sharedassets0.assets (a serialized MonoBehaviour string), NOT in global-metadata.dat,
+# so it is rewritten by patch_assets_endpoint() -- there is no global-metadata.dat patching here.
+API_ENDPOINT_OLD = "https://lb-api.wds-stellarium.com"
+API_ENDPOINT_NEW = f"http://127.0.0.1:{LOCALHOST_PORT}"
 
 # APK TOOLS
 APKTOOL_URL = "https://github.com/iBotPeaches/Apktool/releases/download/v2.12.0/apktool_2.12.0.jar"
@@ -127,86 +128,122 @@ def bundle_data(dest_dir: Path):
     log(f"  iOS: copy assets/ folder to <App>/Documents/gridlessdreams/assets/")
 
 
-# ========== METADATA CRYPTO ==========
+# ========== API ENDPOINT PATCH (Data/sharedassets0.assets) ==========
+# ApplicationConfig._apiEndPoint is a serialized MonoBehaviour string in sharedassets0.assets,
+# stored as <4-byte LE length><UTF-8 bytes><pad to 4-byte align>. The same asset ships on both
+# Android (assets/bin/Data/) and iOS (<App|UnityFramework.framework>/Data/). UnityPy rewrites the
+# object and fixes up the asset file's object offset table so a different-length string stays valid.
 
 
-def dump_string_literals(metadata: bytes):
-    f = BytesIO(metadata)
-    read_int = lambda: int.from_bytes(f.read(4), "little")
-    magic = read_int()
-    assert magic == 0xFAB11BAF, f"bad metadata magic: {magic:#x}"
-    _version = read_int()
-    str_lit_offset = read_int()
-    str_lit_size = read_int()
-    str_lit_data_offset = read_int()
-    _str_lit_data_size = read_int()
-
-    f.seek(str_lit_offset)
-    entries = []
-    for _ in range(str_lit_size // 8):
-        pos = f.tell()
-        length = read_int()
-        data_idx = read_int()
-        entries.append((pos, length, data_idx))
-
-    for size_offset, length, data_idx in entries:
-        f.seek(str_lit_data_offset + data_idx)
-        raw = f.read(length)
-        yield size_offset, str_lit_data_offset + data_idx, raw
+def _rewrite_unity_string(raw: bytes, old: bytes, new: bytes) -> bytes:
+    """Replace one Unity-serialized string field (length prefix + utf8 + align) in raw object bytes."""
+    idx = raw.find(old)
+    if idx < 0:
+        raise ValueError(f"string {old!r} not found in object data")
+    if raw.find(old, idx + 1) >= 0:
+        raise ValueError(f"string {old!r} occurs more than once; cannot locate it safely")
+    len_off = idx - 4
+    if len_off < 0:
+        raise ValueError("string has no room for its 4-byte length prefix")
+    declared = struct.unpack_from("<I", raw, len_off)[0]
+    if declared != len(old):
+        raise ValueError(f"length-prefix mismatch: field says {declared}, string is {len(old)} bytes")
+    old_total = 4 + ((len(old) + 3) & ~3)  # prefix + aligned old payload
+    new_field = struct.pack("<I", len(new)) + new + b"\x00" * (((len(new) + 3) & ~3) - len(new))
+    return raw[:len_off] + new_field + raw[len_off + old_total :]
 
 
-def bruteforce_key(metadata_bin: bytes, binary_path: str) -> tuple[bytes, bytearray]:
-    meta_hdr_xored = bytes(
-        [b ^ METADATA_HDR[i] for i, b in enumerate(metadata_bin[:4])]
+SPLIT_CHUNK = 1024 * 1024
+
+
+def _patch_single_assets(assets_path: Path, old_b: bytes, new_b: bytes):
+    if old_b not in assets_path.read_bytes():
+        log(
+            f"WARNING: {old_b.decode()} not in {assets_path.name} -- API endpoint NOT patched "
+            "(already patched, or a different game version)"
+        )
+        return False
+    try:
+        import UnityPy
+    except ImportError as exc:
+        raise SystemExit("UnityPy is required for the API-endpoint patch: pip install UnityPy") from exc
+
+    env = UnityPy.load(str(assets_path))
+    targets = [o for o in env.objects if old_b in o.get_raw_data()]
+    if len(targets) != 1:
+        raise RuntimeError(
+            f"expected exactly one object containing {old_b.decode()}, found {len(targets)} in {assets_path.name}"
+        )
+    obj = targets[0]
+    obj.set_raw_data(_rewrite_unity_string(obj.get_raw_data(), old_b, new_b))
+
+    tmp = assets_path.parent / f".{assets_path.name}.patch_tmp"
+    shutil.rmtree(tmp, ignore_errors=True)
+    tmp.mkdir(parents=True)
+    try:
+        env.save(out_path=str(tmp))
+        saved = tmp / assets_path.name
+        if not saved.is_file():
+            found = list(tmp.rglob(assets_path.name))
+            if not found:
+                raise RuntimeError(f"UnityPy did not emit {assets_path.name}")
+            saved = found[0]
+        shutil.move(str(saved), str(assets_path))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    blob = assets_path.read_bytes()
+    if new_b not in blob or old_b in blob:
+        raise RuntimeError("verification failed: API endpoint not rewritten cleanly")
+    return True
+
+
+def patch_assets_endpoint(
+    data_dir: Path, old_url: str = API_ENDPOINT_OLD, new_url: str = API_ENDPOINT_NEW
+):
+    """Rewrite ApplicationConfig._apiEndPoint in sharedassets0.assets (single file, or Unity's
+    .split0../.splitN chunked layout which is reassembled, patched, then re-split in place)."""
+    old_b, new_b = old_url.encode("utf-8"), new_url.encode("utf-8")
+    if old_b == new_b:
+        log("API endpoint already equals the target -- nothing to patch")
+        return
+
+    single = data_dir / "sharedassets0.assets"
+    if single.is_file():
+        if _patch_single_assets(single, old_b, new_b):
+            log(f"Patched API endpoint: {old_url} -> {new_url} ({single.name})")
+        return
+
+    # Numeric (not lexical) order: ...split2 before ...split10; the host string lives in the LAST chunk.
+    splits = sorted(
+        data_dir.glob("sharedassets0.assets.split*"),
+        key=lambda p: int(p.name.rsplit(".split", 1)[1]),
     )
+    if not splits:
+        log(f"WARNING: sharedassets0.assets not found under {data_dir} -- API endpoint NOT patched")
+        return
 
-    if all(b == 0 for b in meta_hdr_xored):
-        log("Metadata is not encrypted")
-        return b"\x00", bytearray(metadata_bin)
+    joined = data_dir / "sharedassets0.assets"
+    with open(joined, "wb") as out:
+        for s in splits:
+            out.write(s.read_bytes())
+    log(f"Reassembled {len(splits)} sharedassets0.assets chunks ({joined.stat().st_size} B)")
 
-    with open(binary_path, "rb") as bf:
-        m_bin = mmap.mmap(bf.fileno(), 0, access=mmap.ACCESS_READ)
-        start = 0
-        while (start := m_bin.find(meta_hdr_xored, start)) != -1:
-            key_candidate = m_bin[start : start + max(KEY_LENGTHS)]
-            for klen in KEY_LENGTHS:
-                key = key_candidate[:klen]
-                decrypted = bytes(
-                    [b ^ key[i % klen] for i, b in enumerate(metadata_bin)]
-                )
-                try:
-                    list(dump_string_literals(decrypted))
-                    log(f"Found key at 0x{start:x} (length={klen})")
-                    return key, bytearray(decrypted)
-                except Exception:
-                    pass
-            start += 1
+    patched = _patch_single_assets(joined, old_b, new_b)
+    if not patched:
+        joined.unlink(missing_ok=True)
+        return
 
-    raise RuntimeError("Failed to find metadata decryption key")
-
-
-def encrypt_metadata(metadata: bytearray, key: bytes) -> bytes:
-    return bytes([b ^ key[i % len(key)] for i, b in enumerate(metadata)])
-
-
-def patch_metadata_urls(metadata: bytearray, replacements: dict[str, str]):
-    count = 0
-    for off_sz, off, raw in dump_string_literals(bytes(metadata)):
-        bytelen = len(raw)
-        try:
-            raw_s = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            continue
-        if raw_s in replacements:
-            repl = replacements[raw_s].encode("utf-8")
-            if len(repl) > bytelen:
-                log(f"  SKIP (too long): {raw_s}")
-                continue
-            metadata[off_sz : off_sz + 4] = len(repl).to_bytes(4, "little")
-            metadata[off : off + len(repl)] = repl
-            metadata[off + len(repl) : off + bytelen] = b"\x00" * (bytelen - len(repl))
-            count += 1
-    log(f"Patched {count} URL strings")
+    data = joined.read_bytes()
+    n = max(1, -(-len(data) // SPLIT_CHUNK))
+    for i in range(n):
+        splits_i = data_dir / f"sharedassets0.assets.split{i}"
+        splits_i.write_bytes(data[i * SPLIT_CHUNK : (i + 1) * SPLIT_CHUNK])
+    for stale in data_dir.glob("sharedassets0.assets.split*"):
+        if int(stale.name.rsplit(".split", 1)[1]) >= n:
+            stale.unlink()
+    joined.unlink(missing_ok=True)
+    log(f"Patched API endpoint: {old_url} -> {new_url} (re-split into {n} chunks)")
 
 
 # ========== SSL BYPASS (iOS static binary patch) ==========
@@ -865,20 +902,12 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
     sources = apk_dir / "sources"
     run(f'java -jar "{apktool_jar}" d -f -o "{sources}" --no-src "{apk_path}"')
 
-    # FIND METADATA + BINARY
-    metadata_path = (
-        sources
-        / "assets"
-        / "bin"
-        / "Data"
-        / "Managed"
-        / "Metadata"
-        / "global-metadata.dat"
-    )
+    # FIND DATA DIR + BINARY
+    data_dir = sources / "assets" / "bin" / "Data"
     il2cpp_path = sources / "lib" / "arm64-v8a" / "libil2cpp.so"
 
-    if not metadata_path.exists():
-        raise FileNotFoundError(f"Metadata not found at {metadata_path}")
+    if not data_dir.is_dir():
+        raise FileNotFoundError(f"Unity Data dir not found at {data_dir}")
     if not il2cpp_path.exists():
         raise FileNotFoundError(f"libil2cpp.so not found at {il2cpp_path}")
 
@@ -918,14 +947,9 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
         )
         strings_path.write_text(strings, encoding="utf-8")
 
-    log("Decrypting metadata...")
-    key, metadata = bruteforce_key(metadata_path.read_bytes(), str(il2cpp_path))
-
-    log("Patching URLs...")
-    patch_metadata_urls(metadata, PATCH_URLS)
-
-    log("Re-encrypting metadata...")
-    metadata_path.write_bytes(encrypt_metadata(metadata, key))
+    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets).
+    log("Patching API endpoint...")
+    patch_assets_endpoint(data_dir)
 
     # INJECT .so
     if inject_so and inject_so.exists():
@@ -1035,22 +1059,20 @@ def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
         raise FileNotFoundError("No .app found in IPA")
     app_path = apps[0]
 
-    # FIND METADATA + BINARY
+    # FIND DATA DIR + BINARY (Unity may place Data/ + the binary under the framework or the .app root)
     fw_path = app_path / "Frameworks" / "UnityFramework.framework"
-    metadata_path = fw_path / "Data" / "Managed" / "Metadata" / "global-metadata.dat"
+    data_dir = fw_path / "Data"
     binary_path = fw_path / "UnityFramework"
 
-    if not metadata_path.exists():
-        metadata_path = (
-            app_path / "Data" / "Managed" / "Metadata" / "global-metadata.dat"
-        )
+    if not data_dir.is_dir():
+        data_dir = app_path / "Data"
     if not binary_path.exists():
         binary_path = app_path / app_path.stem
 
-    if not metadata_path.exists():
-        raise FileNotFoundError(f"Metadata not found")
+    if not data_dir.is_dir():
+        raise FileNotFoundError("Unity Data dir not found")
     if not binary_path.exists():
-        raise FileNotFoundError(f"Binary not found")
+        raise FileNotFoundError("Binary not found")
 
     # PATCH INFO.PLIST
     import plistlib
@@ -1068,14 +1090,9 @@ def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
         plistlib.dump(plist, f)
     log(f"Patched Info.plist (package={PACKAGE_NAME}, name={APP_NAME})")
 
-    log("Decrypting metadata...")
-    key, metadata = bruteforce_key(metadata_path.read_bytes(), str(binary_path))
-
-    log("Patching URLs...")
-    patch_metadata_urls(metadata, PATCH_URLS)
-
-    log("Re-encrypting metadata...")
-    metadata_path.write_bytes(encrypt_metadata(metadata, key))
+    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets).
+    log("Patching API endpoint...")
+    patch_assets_endpoint(data_dir)
 
     # INJECT DYLIB
     if inject_dylib and inject_dylib.exists():
