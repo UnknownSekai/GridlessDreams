@@ -3,7 +3,7 @@
 #include "../headers.h"
 #include "../wire.h"
 
-// Ports routes/circles.py. Every endpoint is a stub returning an empty Circle*
+// ports routes/circles.py. every endpoint is a stub returning an empty Circle*
 // result (matching the Python); no payload or path param affects the response.
 
 namespace routes {
@@ -17,12 +17,12 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// respond(Model()) -> empty result entity, no present.
+// respond(Model()) -> empty result entity, no present
 void respond_empty(httplib::Response& res, const char* result_name) {
     send(res, wire::common_response(result_name, json::object()));
 }
 
-// respond([Model()]) -> a list holding one default entity.
+// respond([Model()]) -> a list holding one default entity
 void respond_singleton(httplib::Response& res, const char* result_name) {
     send(res, wire::common_response(result_name, json::array({json::object()})));
 }

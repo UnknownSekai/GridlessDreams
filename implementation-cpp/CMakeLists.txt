@@ -32,7 +32,7 @@ endif()
 
 add_library(sqlite3 STATIC external/sqlite/sqlite3.c)
 target_include_directories(sqlite3 PUBLIC external/sqlite)
-# ceil()/floor() for adjust_user_stamina_atomic (db layer).
+# ceil()/floor() for adjust_user_stamina_atomic (db layer)
 target_compile_definitions(sqlite3 PRIVATE SQLITE_ENABLE_MATH_FUNCTIONS=1)
 
 add_library(tiny_aes STATIC external/tiny-AES-c/aes.c)
@@ -47,7 +47,7 @@ target_include_directories(miniz PUBLIC external/miniz)
 add_library(lz4 STATIC external/lz4/lib/lz4.c)
 target_include_directories(lz4 PUBLIC external/lz4/lib)
 
-# argon2 (reference core; ref.c is the portable fill_segment -- do NOT also add opt.c).
+# argon2 (reference core; ref.c is the portable fill_segment -- do NOT also add opt.c)
 add_library(argon2 STATIC
     external/argon2/src/argon2.c
     external/argon2/src/core.c
@@ -58,13 +58,21 @@ add_library(argon2 STATIC
 )
 target_include_directories(argon2 PUBLIC external/argon2/include)
 
-# Bob Jenkins SpookyHash V2 (byte-identical to the python spookyhash package).
+# Bob Jenkins SpookyHash V2 (byte-identical to the python spookyhash package)
 add_library(spookyhash STATIC external/spookyhash/src/SpookyV2.cpp)
 target_include_directories(spookyhash PUBLIC external/spookyhash/src)
 
-# sha256 + hmac-sha256 + base64url for JWT HS256 (no OpenSSL).
+# sha256 + hmac-sha256 + base64url for JWT HS256 (no OpenSSL)
 add_library(jwtcrypto STATIC external/jwtcrypto/jwtcrypto.cpp)
 target_include_directories(jwtcrypto PUBLIC external/jwtcrypto)
+
+# brotli (catalog .json.br compression + notation/masterdata decompression; matches the python brotli pkg)
+file(GLOB BROTLI_SOURCES
+    external/brotli/c/common/*.c
+    external/brotli/c/dec/*.c
+    external/brotli/c/enc/*.c)
+add_library(brotli STATIC ${BROTLI_SOURCES})
+target_include_directories(brotli PUBLIC external/brotli/c/include)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -72,6 +80,8 @@ file(GLOB_RECURSE SOURCES src/*.cpp)
 
 add_library(dreams SHARED ${SOURCES})
 target_include_directories(dreams PRIVATE
+    src
+    src/generated
     external
     external/cpp-httplib
     external/nlohmann
@@ -84,11 +94,17 @@ target_include_directories(dreams PRIVATE
     external/spookyhash/src
     external/jwtcrypto
     external/miniyaml
+    external/brotli/c/include
 )
 target_link_libraries(dreams PRIVATE
-    sqlite3 tiny_aes miniz lz4 argon2 spookyhash jwtcrypto log z)
+    sqlite3 tiny_aes miniz lz4 argon2 spookyhash jwtcrypto brotli log z)
 target_compile_definitions(dreams PRIVATE
     MSGPACK_NO_BOOST=1
+    # the host game (Unity) keeps thousands of fds open, so an accepted socket's fd can
+    # exceed FD_SETSIZE (1024); httplib's default select() path then does FD_SET on an
+    # out-of-range fd (UB -> the server accepts connections but never answers). poll()
+    # has no such limit.
+    CPPHTTPLIB_USE_POLL=1
 )
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")

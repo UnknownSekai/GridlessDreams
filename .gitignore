@@ -255,6 +255,10 @@ assets/
 *.ipa
 *.apk
 
+# downloaded server data (download_all_assets -> _data) + packaged portion zips (package_assets -> dist/)
+_data/
+dist/
+
 # signing keystore + local secrets — do NOT commit to a public repo
 *.keystore
 secrets.json

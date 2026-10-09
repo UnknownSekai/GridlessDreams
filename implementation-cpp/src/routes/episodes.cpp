@@ -106,7 +106,7 @@ void read_story(const httplib::Request& req, httplib::Response& res, long long e
 }  // namespace
 
 void register_episodes(httplib::Server& svr) {
-    // Scene script blob: EpisodeDetailResult[] packed to msgpack, served as the .bin the client
+    // scene script blob: EpisodeDetailResult[] packed to msgpack, served as the .bin the client
     // downloads (from an EpisodeResult.EpisodeDetailAssetSource)
     svr.Get("/master-data/production/scenes/:filename",
             [](const httplib::Request& req, httplib::Response& res) {

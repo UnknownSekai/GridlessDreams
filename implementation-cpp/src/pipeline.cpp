@@ -5,7 +5,7 @@
 #include "headers.h"
 #include "wire.h"
 
-// Ports the httplib-facing surface of helpers/msgpack.py. The msgpack codec, LZ4
+// ports the httplib-facing surface of helpers/msgpack.py. the msgpack codec, LZ4
 // decompression and the 5-pack envelope all live in wire.cpp; this layer only adds
 // the httplib::Request/Response adapters and the Fault/DeletedDataObject builders.
 // app.py's lifespan, /master-data/production route and exception handlers are not

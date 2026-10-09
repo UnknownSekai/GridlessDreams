@@ -18,7 +18,7 @@ std::string join(const std::vector<std::string>& parts, const char* sep) {
 }
 }  // namespace
 
-SelectQuery get_character_base(std::int64_t user_id, std::int64_t base_master_id) {
+SelectQuery get_character_base(long long user_id, long long base_master_id) {
     return SelectQuery(
         "CharacterBaseModel",
         "SELECT * FROM \"character_base\" WHERE \"userId\" = $1 AND \"characterBaseMasterId\" = $2 LIMIT 1",
@@ -26,10 +26,10 @@ SelectQuery get_character_base(std::int64_t user_id, std::int64_t base_master_id
         base_master_id);
 }
 
-ExecutableQuery create_character_base(std::int64_t user_id, std::int64_t row_id,
-                                      std::int64_t base_master_id,
-                                      std::optional<std::int64_t> costume_master_id,
-                                      std::int64_t portal_character_id) {
+ExecutableQuery create_character_base(long long user_id, long long row_id,
+                                      long long base_master_id,
+                                      std::optional<long long> costume_master_id,
+                                      long long portal_character_id) {
     return ExecutableQuery(
         "INSERT INTO \"character_base\" "
         "(\"userId\", \"id\", \"characterBaseMasterId\", \"costumeMasterId\", \"portalCharacterId\") "
@@ -41,8 +41,8 @@ ExecutableQuery create_character_base(std::int64_t user_id, std::int64_t row_id,
         portal_character_id);
 }
 
-ExecutableQuery create_character(std::int64_t user_id, std::int64_t row_id, std::int64_t master_id,
-                                 std::int64_t character_base_id) {
+ExecutableQuery create_character(long long user_id, long long row_id, long long master_id,
+                                 long long character_base_id) {
     return ExecutableQuery(
         "INSERT INTO \"character\" "
         "(\"userId\", \"id\", \"characterMasterId\", \"characterBaseId\", \"level\", \"senseLevel\", \"selectionType\") "
@@ -53,7 +53,7 @@ ExecutableQuery create_character(std::int64_t user_id, std::int64_t row_id, std:
         character_base_id);
 }
 
-ExecutableQuery create_accessory(std::int64_t user_id, std::int64_t row_id, std::int64_t master_id,
+ExecutableQuery create_accessory(long long user_id, long long row_id, long long master_id,
                                  const wire::json& effects) {
     return ExecutableQuery(
         "INSERT INTO \"accessory\" "
@@ -65,7 +65,7 @@ ExecutableQuery create_accessory(std::int64_t user_id, std::int64_t row_id, std:
         effects);
 }
 
-ExecutableQuery add_stamina(std::int64_t user_id, std::int64_t amount) {
+ExecutableQuery add_stamina(long long user_id, long long amount) {
     return ExecutableQuery(
         "UPDATE \"user\" SET \"currentStamina\" = \"currentStamina\" + $2 WHERE \"userId\" = $1",
         user_id,
@@ -73,7 +73,7 @@ ExecutableQuery add_stamina(std::int64_t user_id, std::int64_t amount) {
 }
 
 ExecutableQuery grant_possession(const std::string& table, const std::string& master_col,
-                                 std::int64_t user_id, std::int64_t row_id, std::int64_t master_id,
+                                 long long user_id, long long row_id, long long master_id,
                                  const wire::json& extra) {
     // table / master_col / extra keys come from a hardcoded ThingType map, never user input
     std::vector<std::string> cols = {"\"userId\"", "\"id\"", "\"" + master_col + "\""};
@@ -95,7 +95,7 @@ ExecutableQuery grant_possession(const std::string& table, const std::string& ma
 }
 
 std::string grant_collection(const std::string& table, const std::string& array_col,
-                             std::int64_t user_id, std::int64_t master_id) {
+                             long long user_id, long long master_id) {
     // append master_id to the per-user singleton's json array (creating the row if absent) without
     // duplicating; pg built the jsonb in-SQL so no python-list -> json codec is needed. SQLite has
     // no data-modifying CTEs: run the guarded append, else the first-time insert (composite + changes()).
@@ -115,7 +115,7 @@ std::string grant_collection(const std::string& table, const std::string& array_
     return db::composite_update_or_insert(update_q, insert_q);
 }
 
-SelectQuery get_inboxes_by_ids(std::int64_t user_id, const std::vector<std::int64_t>& ids) {
+SelectQuery get_inboxes_by_ids(long long user_id, const std::vector<long long>& ids) {
     return SelectQuery(
         "InboxModel",
         "SELECT * FROM \"inbox\" WHERE \"userId\" = $1 AND \"id\" IN (SELECT value FROM json_each($2))",
@@ -123,7 +123,7 @@ SelectQuery get_inboxes_by_ids(std::int64_t user_id, const std::vector<std::int6
         ids);
 }
 
-ExecutableQuery receive_inbox(std::int64_t user_id, std::int64_t inbox_id, std::int64_t now) {
+ExecutableQuery receive_inbox(long long user_id, long long inbox_id, long long now) {
     return ExecutableQuery(
         "UPDATE \"inbox\" SET \"hasReceived\" = true, \"receivedAt\" = $3 "
         "WHERE \"userId\" = $1 AND \"id\" = $2 AND \"hasReceived\" = false",

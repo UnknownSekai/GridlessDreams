@@ -18,7 +18,7 @@
 #include "generated/wire_keys_generated.h"
 #include "unions.h"
 
-// Ports helpers/user_data.py. The async app/conn params are dropped (one global db).
+// ports helpers/user_data.py. the async app/conn params are dropped (one global db).
 // iso_to_timestamp / _conv's enum+DateTime branches live in the wire layer now: _to_array
 // only remaps a camelCase DB row onto the entity's field names (fn) and recurses into nested
 // model columns; wire::to_wire does the [Key(n)] positional encoding, zero-fill, enum->int,
@@ -28,19 +28,19 @@ namespace user_data {
 
 namespace {
 
-using GetterFn = db::SelectQuery (*)(std::int64_t);
+using GetterFn = db::SelectQuery (*)(long long);
 
-// one resolved registry row: entity type, its union key, and the db.user getter.
+// one resolved registry row: entity type, its union key, and the db.user getter
 struct RegEntry {
     std::string name;
     int key;
     GetterFn get;
 };
 
-// camelCase column -> its FieldSpec, per entity type.
+// camelCase column -> its FieldSpec, per entity type
 using CamelMap = std::unordered_map<std::string, const wire::FieldSpec*>;
 
-// getattr(db_user, "get_<table>s"): every single-arg db.user getter by name.
+// getattr(db_user, "get_<table>s"): every single-arg db.user getter by name
 const std::unordered_map<std::string, GetterFn>& getter_map() {
     static const std::unordered_map<std::string, GetterFn> m = {
         {"get_accessory_auto_sells", &db::user::get_accessory_auto_sells},
@@ -236,7 +236,7 @@ const std::unordered_map<std::string, GetterFn>& getter_map() {
     return m;
 }
 
-// python _camel: strip trailing _, split on _, keep first part, capitalize the rest.
+// python _camel: strip trailing _, split on _, keep first part, capitalize the rest
 std::string camel(const std::string& attr) {
     std::size_t end = attr.size();
     while (end > 0 && attr[end - 1] == '_') --end;
@@ -263,7 +263,7 @@ std::string camel(const std::string& attr) {
     return out;
 }
 
-// memoized camelCase->FieldSpec map for one entity type (_CAMELMAP).
+// memoized camelCase->FieldSpec map for one entity type (_CAMELMAP)
 const CamelMap& camelmap(const std::string& type_name) {
     static std::mutex mtx;
     static std::unordered_map<std::string, CamelMap> cache;
@@ -285,12 +285,12 @@ const CamelMap& camelmap(const std::string& type_name) {
 
 // python _conv: null passthrough, byte[] -> msgpack bin (a C# byte[] is a bin, not an
 // array of ints), model dicts recursed to field-name keys; enum/DateTime/prim deferred
-// to the wire layer.
+// to the wire layer
 wire::json conv(const char* base, bool is_array, const char* kind, const wire::json& v) {
     if (v.is_null()) return v;
     if (is_array) {
         // a C# byte[] serializes as a MessagePack bin, not an array of integers; emit a
-        // json binary so the wire layer packs it as bin (python returns bytes(v) here).
+        // json binary so the wire layer packs it as bin (python returns bytes(v) here)
         if (std::strcmp(base, "byte") == 0) {
             if (!v.is_array()) return v;  // mirrors python's isinstance(v, (list, ...)) guard
             std::vector<std::uint8_t> bytes;
@@ -307,7 +307,7 @@ wire::json conv(const char* base, bool is_array, const char* kind, const wire::j
     return v;
 }
 
-// entity type -> (unionKey, getter), for every entity with a union key, KEYS table, and getter.
+// entity type -> (unionKey, getter), for every entity with a union key, KEYS table, and getter
 const std::vector<RegEntry>& registry() {
     static const std::vector<RegEntry> reg = [] {
         std::vector<RegEntry> r;
@@ -343,7 +343,7 @@ std::string strip(const std::string& s) {
     return s.substr(b, e - b + 1);
 }
 
-// python _bearer: the raw token from the Authorization header, or none.
+// python _bearer: the raw token from the Authorization header, or none
 std::optional<std::string> bearer(const httplib::Request& request) {
     if (!request.has_header("Authorization")) return std::nullopt;
     std::string auth = request.get_header_value("Authorization");

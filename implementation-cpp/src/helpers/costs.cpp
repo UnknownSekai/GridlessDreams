@@ -38,7 +38,7 @@ bool pay_items(long long user_id, const ItemMap& cost,
         if (have < quantity) return false;
     }
 
-    std::vector<std::pair<std::int64_t, std::int64_t>> deltas;
+    std::vector<std::pair<long long, long long>> deltas;
     for (const auto& [item, quantity] : bill) {
         deltas.emplace_back(item, -quantity);
     }

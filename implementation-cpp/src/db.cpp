@@ -69,7 +69,7 @@ std::string args_repr(const std::vector<json>& args) {
     return a;
 }
 
-// Mirrors DBConnWrapper's `print(query)` before re-raising.
+// mirrors DBConnWrapper's `print(query)` before re-raising
 void log_failure(const std::string& sql, const std::vector<json>& args) {
     std::fprintf(stderr, "DB query failed: sql=%s args=%s err=%s\n", sql.c_str(),
                  args_repr(args).c_str(), g_db ? sqlite3_errmsg(g_db) : "(no db)");
@@ -105,7 +105,7 @@ void bind_arg(sqlite3_stmt* st, int idx, const json& v) {
         if (v.is_number_unsigned())
             sqlite3_bind_int64(st, idx, (sqlite3_int64)v.get<std::uint64_t>());
         else
-            sqlite3_bind_int64(st, idx, (sqlite3_int64)v.get<std::int64_t>());
+            sqlite3_bind_int64(st, idx, (sqlite3_int64)v.get<long long>());
     } else if (v.is_number_float()) {
         sqlite3_bind_double(st, idx, v.get<double>());
     } else if (v.is_string()) {
@@ -162,7 +162,7 @@ json read_value(sqlite3_stmt* st, int i) {
             }
             case schema::INT:
             case schema::BIGINT:
-                return json((std::int64_t)sqlite3_column_int64(st, i));
+                return json((long long)sqlite3_column_int64(st, i));
             case schema::REAL:
                 return json(sqlite3_column_double(st, i));
             case schema::TEXT: {
@@ -175,7 +175,7 @@ json read_value(sqlite3_stmt* st, int i) {
 
     switch (sqlite3_column_type(st, i)) {
         case SQLITE_INTEGER:
-            return json((std::int64_t)sqlite3_column_int64(st, i));
+            return json((long long)sqlite3_column_int64(st, i));
         case SQLITE_FLOAT:
             return json(sqlite3_column_double(st, i));
         case SQLITE_TEXT: {
@@ -231,7 +231,7 @@ std::string command_tag(const std::string& sql, int changes) {
     return verb;
 }
 
-// All *_impl helpers assume the connection mutex is held by the caller.
+// all *_impl helpers assume the connection mutex is held by the caller
 std::string exec_impl(const std::string& sql, const std::vector<json>& args) {
     sqlite3_stmt* st = prepare_or_throw(sql, args);
     try {
@@ -319,14 +319,14 @@ void close() {
     }
 }
 
-int64_t next_sequence(const std::string& name) {
+long long next_sequence(const std::string& name) {
     std::lock_guard<std::recursive_mutex> g(g_mutex);
     std::vector<json> args{json(name)};
     std::vector<json> rows = fetch_impl(
         "UPDATE \"sequences\" SET \"value\" = \"value\" + 1 WHERE \"name\" = $1 RETURNING \"value\"",
         args);
     if (rows.empty()) throw std::runtime_error("next_sequence: unknown sequence " + name);
-    return rows[0].at("value").get<std::int64_t>();
+    return rows[0].at("value").get<long long>();
 }
 
 std::string execute(const ExecutableQuery& q) {

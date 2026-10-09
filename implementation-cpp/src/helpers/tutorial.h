@@ -3,9 +3,9 @@
 
 #include "generated/enums_generated.h"
 
-// The tutorial progression. A client may only advance through these steps, never
+// the tutorial progression. a client may only advance through these steps, never
 // backtrack -- Player_UpdateTutorial rejects a target that precedes the current step.
-// Ports helpers/tutorial.py.
+// ports helpers/tutorial.py.
 
 namespace tutorial {
 

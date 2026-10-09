@@ -3,7 +3,7 @@
 #include "../headers.h"
 #include "../wire.h"
 
-// Ports routes/events.py. Every endpoint is a stub returning an empty *Result
+// ports routes/events.py. every endpoint is a stub returning an empty *Result
 // (matching the Python); no payload, query, or path param affects the response.
 
 namespace routes {
@@ -17,12 +17,12 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// respond(Model()) -> empty result entity, no present.
+// respond(Model()) -> empty result entity, no present
 void respond_empty(httplib::Response& res, const char* result_name) {
     send(res, wire::common_response(result_name, json::object()));
 }
 
-// respond([]) -> a bare empty list.
+// respond([]) -> a bare empty list
 void respond_empty_list(httplib::Response& res) {
     send(res, wire::common_response("", json::array()));
 }

@@ -2,8 +2,8 @@
 #include <map>
 #include <optional>
 
-// Charge a caller's items/coin atomically for an upgrade or purchase.
-// Ports helpers/costs.py. Each helper checks affordability first and writes
+// charge a caller's items/coin atomically for an upgrade or purchase.
+// ports helpers/costs.py. each helper checks affordability first and writes
 // nothing unless the whole bill can be paid, so an op can never half-charge and
 // then fail; call inside the operation's own db transaction.
 

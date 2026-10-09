@@ -62,8 +62,13 @@ if [ ! -d "external/spookyhash" ]; then
     git clone --depth 1 https://github.com/buhanec/spookyhash.git external/spookyhash
 fi
 
+if [ ! -d "external/brotli" ]; then
+    echo "[*] Cloning brotli (google/brotli v1.1.0; catalog compression + asset decompression)..."
+    git clone --depth 1 --branch v1.1.0 https://github.com/google/brotli.git external/brotli
+fi
+
 # external/miniyaml and external/jwtcrypto are vendored (committed) single-purpose
-# libs -- nothing to fetch.
+# libs -- nothing to fetch
 
 # NDK - detect OS
 if [ ! -d "external/android-ndk-r26d" ]; then

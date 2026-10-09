@@ -7,12 +7,12 @@ include $(THEOS)/makefiles/common.mk
 
 LIBRARY_NAME = libdreams
 
-COMMON_INCLUDES = -Iexternal -Iexternal/cpp-httplib -Iexternal/nlohmann -Iexternal/sqlite -Iexternal/tiny-AES-c -Iexternal/msgpack-cxx/include -Iexternal/miniz -Iexternal/lz4/lib -Iexternal/argon2/include -Iexternal/spookyhash/src -Iexternal/jwtcrypto -Iexternal/miniyaml
-# AES256: crypto.cpp uses 256-bit asset ciphers; aes.c + crypto.cpp must agree on struct AES_ctx.
-COMMON_DEFS = -DCBC=1 -DECB=0 -DCTR=0 -DAES256=1 -DMSGPACK_NO_BOOST=1 -DSQLITE_ENABLE_MATH_FUNCTIONS=1
+COMMON_INCLUDES = -Isrc -Isrc/generated -Iexternal -Iexternal/cpp-httplib -Iexternal/nlohmann -Iexternal/sqlite -Iexternal/tiny-AES-c -Iexternal/msgpack-cxx/include -Iexternal/miniz -Iexternal/lz4/lib -Iexternal/argon2/include -Iexternal/spookyhash/src -Iexternal/jwtcrypto -Iexternal/miniyaml -Iexternal/brotli/c/include
+# AES256: crypto.cpp uses 256-bit asset ciphers; aes.c + crypto.cpp must agree on struct AES_ctx
+COMMON_DEFS = -DCBC=1 -DECB=0 -DCTR=0 -DAES256=1 -DMSGPACK_NO_BOOST=1 -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -DCPPHTTPLIB_USE_POLL=1
 
 # src TUs are globbed recursively to mirror CMake's GLOB_RECURSE, so db.cpp,
-# routes.cpp and every new module TU are picked up as they are added.
+# routes.cpp and every new module TU are picked up as they are added
 DREAMS_SRC = $(shell find src -name '*.cpp' 2>/dev/null)
 DREAMS_EXTERNAL = \
 	external/sqlite/sqlite3.c \
@@ -26,7 +26,10 @@ DREAMS_EXTERNAL = \
 	external/argon2/src/blake2/blake2b.c \
 	external/argon2/src/ref.c \
 	external/spookyhash/src/SpookyV2.cpp \
-	external/jwtcrypto/jwtcrypto.cpp
+	external/jwtcrypto/jwtcrypto.cpp \
+	$(wildcard external/brotli/c/common/*.c) \
+	$(wildcard external/brotli/c/dec/*.c) \
+	$(wildcard external/brotli/c/enc/*.c)
 
 libdreams_FILES = $(DREAMS_SRC) $(DREAMS_EXTERNAL)
 libdreams_CFLAGS = -fno-rtti -Wno-unused-function -Wno-error $(COMMON_INCLUDES) $(COMMON_DEFS)

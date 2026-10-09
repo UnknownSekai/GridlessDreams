@@ -33,7 +33,7 @@ const json* array_field(const json& o, const char* k) {
 
 long long now_utc() { return static_cast<long long>(std::time(nullptr)); }
 
-// Howard Hinnant's days-from-civil (days relative to 1970-01-01).
+// Howard Hinnant's days-from-civil (days relative to 1970-01-01)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -108,7 +108,7 @@ bool iso_epoch_seconds(const std::string& s, long long& out) {
 
 // three-state read of a frame date field, matching python's inner instant():
 // None_ when the value is falsy (null/missing/empty), Value when parseable,
-// Error when non-empty but unparseable (fromisoformat raises).
+// Error when non-empty but unparseable (fromisoformat raises)
 enum class Instant { None_, Value, Error };
 
 Instant instant(const json& frame, const char* key, long long& out) {
@@ -119,7 +119,7 @@ Instant instant(const json& frame, const char* key, long long& out) {
     return iso_epoch_seconds(v, out) ? Instant::Value : Instant::Error;
 }
 
-// {id_: row} over LiveSettingMaster / LiveDropFrameGroupMaster, built once (mirrors _build()).
+// {id_: row} over LiveSettingMaster / LiveDropFrameGroupMaster, built once (mirrors _build())
 const std::unordered_map<long long, const json*>& setting_index() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -144,7 +144,7 @@ const std::unordered_map<long long, const json*>& frame_group_index() {
     return m;
 }
 
-// start-inclusive, end-exclusive availability window.
+// start-inclusive, end-exclusive availability window
 bool frame_available(const json& frame, long long now) {
     long long start = 0, end = 0;
     Instant rs = instant(frame, "start_date", start);

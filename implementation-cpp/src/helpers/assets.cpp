@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-// brotli one-shot encoder: real header when vendored, else forward-declare its C API.
+// brotli one-shot encoder: real header when vendored, else forward-declare its C API
 #if defined(__has_include)
 #  if __has_include(<brotli/encode.h>)
 #    include <brotli/encode.h>
@@ -286,6 +286,19 @@ std::optional<BodyMd5> notation(const std::string& music_id, const std::string& 
 
 std::string official_notation_url(const std::string& music_id, const std::string& filename) {
     return OFFICIAL_ASSET_URL + "/Notations/" + music_id + "/" + filename;
+}
+
+std::optional<BodyMd5> static_content(const std::string& rel_path) {
+    std::vector<std::string> base = {"_data", "assets", "static-assets"};
+    std::string full;
+    if (!resolve_within(base, rel_path, full)) return std::nullopt;
+    std::string body = platform::read_file(full);
+    if (body.empty()) return std::nullopt;
+    return BodyMd5{body, content_md5(body)};
+}
+
+std::string official_static_url(const std::string& rel_path) {
+    return OFFICIAL_ASSET_URL + "/static-assets/" + rel_path;
 }
 
 }  // namespace assets

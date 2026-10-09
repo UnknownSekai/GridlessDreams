@@ -10,7 +10,7 @@
 #include "../helpers/user_data.h"
 #include "../wire.h"
 
-// Ports routes/friends.py.
+// ports routes/friends.py
 
 namespace routes {
 
@@ -23,7 +23,7 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// Optional[str] query param -> std::optional<std::string>.
+// Optional[str] query param -> std::optional<std::string>
 std::optional<std::string> param(const httplib::Request& req, const char* name) {
     if (req.has_param(name)) return req.get_param_value(name);
     return std::nullopt;

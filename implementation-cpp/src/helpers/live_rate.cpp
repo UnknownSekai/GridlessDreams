@@ -9,7 +9,7 @@
 #include "generated/enums_generated.h"
 #include "master_data.h"
 
-// ports helpers/live_rate.py; see that file for the reasoning behind each curve rule.
+// ports helpers/live_rate.py; see that file for the reasoning behind each curve rule
 
 namespace live_rate {
 
@@ -19,7 +19,7 @@ using json = nlohmann::ordered_json;
 
 constexpr int kTopN = 30;
 
-// achievement-rate -> adjustment breakpoints, highest first; linearly interpolated between.
+// achievement-rate -> adjustment breakpoints, highest first; linearly interpolated between
 struct Adjustment {
     double rate;
     double adj;
@@ -36,7 +36,7 @@ const std::array<Adjustment, 9> kAdjustments = {{
     {97.50, -1.00},
 }};
 
-// {id_: row} over LiveMaster, built once; last duplicate id wins (mirrors the dict comp).
+// {id_: row} over LiveMaster, built once; last duplicate id wins (mirrors the dict comp)
 const std::unordered_map<long long, const json*>& by_id() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -47,7 +47,7 @@ const std::unordered_map<long long, const json*>& by_id() {
     return m;
 }
 
-// {id_: row} over MusicMaster, built once.
+// {id_: row} over MusicMaster, built once
 const std::unordered_map<long long, const json*>& music_by_id() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -59,7 +59,7 @@ const std::unordered_map<long long, const json*>& music_by_id() {
 }
 
 // the chart if it participates in live rate -- Stella-or-lower difficulty and not a
-// long-version song -- else nullptr.
+// long-version song -- else nullptr
 const json* rated_chart(long long live_master_id) {
     const auto& ids = by_id();
     auto it = ids.find(live_master_id);

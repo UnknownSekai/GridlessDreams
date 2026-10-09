@@ -35,7 +35,7 @@ std::string _iso(long long seconds) {
     return std::string(buf);
 }
 
-// project another user's User + UserProfile (+ account.lastLoginAt) into a FriendResult.
+// project another user's User + UserProfile (+ account.lastLoginAt) into a FriendResult
 std::optional<wire::json> _friend_result(long long target_id, bool is_favorite) {
     std::optional<db::json> user = db::fetchrow(db::user::get_users(target_id));
     std::optional<db::json> profile = db::fetchrow(db::user::get_user_profiles(target_id));

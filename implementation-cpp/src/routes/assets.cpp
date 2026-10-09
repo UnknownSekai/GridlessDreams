@@ -23,8 +23,8 @@ void octet(httplib::Response& res, const assets::BodyMd5& result) {
 }  // namespace
 
 void register_assets(httplib::Server& svr) {
-    // Notation charts + music_config, served under /production/Notations/{music}/{file}.enc.
-    // This 3-segment path is matched before the generic one so the client gets the raw
+    // notation charts + music_config, served under /production/Notations/{music}/{file}.enc.
+    // this 3-segment path is matched before the generic one so the client gets the raw
     // encrypted bytes (local if downloaded, else a redirect to the real CDN).
     svr.Get(R"(/production/Notations/([^/]+)/([^/]+))",
             [](const httplib::Request& req, httplib::Response& res) {
@@ -40,7 +40,23 @@ void register_assets(httplib::Server& svr) {
                 res.set_redirect(assets::official_notation_url(music_id, filename), 302);
             });
 
-    // Everything the client fetches from assets-e (redirected here). kind is
+    // static content (event/gacha banner textures) the client fetches from static_content_url
+    // (.../production/static-assets), NOT the Addressables asset_url. matched before the generic
+    // route below so kind=static-assets doesn't mis-parse. local when present, else 302 to the CDN.
+    svr.Get(R"(/production/static-assets/(.*))",
+            [](const httplib::Request& req, httplib::Response& res) {
+                const std::string filepath = req.matches[1].str();
+                if (assets::local_assets_enabled()) {
+                    std::optional<assets::BodyMd5> local = assets::static_content(filepath);
+                    if (local.has_value()) {
+                        octet(res, *local);
+                        return;
+                    }
+                }
+                res.set_redirect(assets::official_static_url(filepath), 302);
+            });
+
+    // everything the client fetches from assets-e (redirected here). kind is
     // 2d-assets|3d-assets|cri-assets, platform Android|iOS.
     //   catalog_<ver>.json.br -> brotli of the local catalog json
     //   catalog_<ver>.hash    -> spookyhash-128 of the local catalog json

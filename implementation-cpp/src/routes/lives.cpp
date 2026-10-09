@@ -25,7 +25,7 @@
 #include "../helpers/user_data.h"
 #include "generated/enums_generated.h"
 
-// Ports routes/lives.py.
+// ports routes/lives.py
 
 namespace routes {
 
@@ -45,7 +45,7 @@ using db::user::update_sp_rate_point;
 using db::user::upsert_live;
 using db::user::upsert_sp_rate;
 
-// LiveMaster -> its MusicMaster. The two id->row maps are built once on first use
+// LiveMaster -> its MusicMaster. the two id->row maps are built once on first use
 // (mirrors the module-global _LIVE_MASTER / _MUSIC_MASTER lazy fill).
 const json* _music_of(long long live_master_id) {
     static const std::unordered_map<long long, const json*> live_master = [] {
@@ -81,7 +81,7 @@ long long _stamina_cost(long long live_master_id, long long ratio) {
 // python round(x, 4): nearest 1e-4, ties to even
 double round4(double x) { return std::nearbyint(x * 10000.0) / 10000.0; }
 
-// an int payload field or its default(0); a missing/nil field is absent from the decoded json.
+// an int payload field or its default(0); a missing/nil field is absent from the decoded json
 long long pint(const json& payload, const char* key) {
     return payload.value(key, static_cast<long long>(0));
 }
@@ -184,8 +184,8 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
         present.push_back(user_data::data_object("Live", live_row));
     }
 
-    // Only Extra/Stella/Olivier clears can change release state -- skip everything else.
-    // When they can, re-derive every owned song, then push all changes in one UPDATE.
+    // only Extra/Stella/Olivier clears can change release state -- skip everything else.
+    // when they can, re-derive every owned song, then push all changes in one UPDATE.
     if (music_unlock::affects_unlocks(live_master_id)) {
         // the Extra GOOD budget can only be judged here, off this play's own blocks
         std::vector<nlohmann::json> changed = music_unlock::apply_unlocks(
@@ -197,7 +197,7 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     }
 
     // live drops: resolve the setting's drop frames whose lot condition this play met,
-    // then consolidate + batch-grant their rewards. Long-version songs never drop.
+    // then consolidate + batch-grant their rewards. long-version songs never drop.
     std::vector<json> live_drops;
     if (!_is_long_version(live_master_id)) {
         long long setting_id =
@@ -211,7 +211,7 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     }
 
     // live rate: this chart's (past-best, this-time) + the top-30 total before/after this
-    // play. The profile's playerRate IS that top-30 total, so keep it in sync when it moves.
+    // play. the profile's playerRate IS that top-30 total, so keep it in sync when it moves.
     // (0.0, 0.0) for charts with no live rate (Olivier / long-version) -- not null
     std::pair<double, double> lr =
         live_rate::chart_live_rate_result(live_master_id, this_rate, prev_rate);
@@ -234,7 +234,7 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     if (total_after != total_before) db::execute(update_player_rate(*user_id, total_after));
 
     // Olivier (difficulty 5) clears award star-badge points (SpRate) instead of a live
-    // rate: keep the chart's best points and report the before/after per-chart + total.
+    // rate: keep the chart's best points and report the before/after per-chart + total
     json sp_rate_update_result = nullptr;
     std::optional<int> this_points = live_rate::olivier_sp_rate_points(
         live_master_id, this_rate, new_lamp, live_result::non_perfect_star_count(base_blocks));
@@ -324,8 +324,8 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     result["sp_rate_update_result"] = sp_rate_update_result;
     result["player_rank_point_result"] = player_rank_point_result;
     result["live_drop_things"] = live_drops;
-    // These must be empty lists, not null -- the result panel iterates them and a null
-    // list NREs the client. Empty for now; TODO implement each:
+    // these must be empty lists, not null -- the result panel iterates them and a null
+    // list NREs the client. empty for now; TODO implement each:
     result["league_rewards"] = json::array();                     // TODO: league-mode finish rewards
     result["audition_rewards"] = json::array();                   // TODO: audition finish rewards
     result["story_event_rewards"] = json::array();                // TODO: story-event finish rewards

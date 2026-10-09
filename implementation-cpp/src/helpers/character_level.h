@@ -7,8 +7,8 @@
 #include <utility>
 #include <vector>
 
-// Character leveling: the exp curve, the level ceiling, and experience items.
-// Ports helpers/character_level.py. Master rows flow as ordered_json keyed by the
+// character leveling: the exp curve, the level ceiling, and experience items.
+// ports helpers/character_level.py. master rows flow as ordered_json keyed by the
 // pydantic field name; rarities flow as the enums::CharacterRarities integer value.
 // datetimes flow as epoch seconds (utc).
 

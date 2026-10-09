@@ -8,7 +8,7 @@
 #include "../helpers/environment.h"
 #include "../wire.h"
 
-// Ports routes/environment.py. The client's first, anonymous call on boot.
+// ports routes/environment.py. the client's first, anonymous call on boot.
 
 namespace routes {
 

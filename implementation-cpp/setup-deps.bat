@@ -1,5 +1,5 @@
 @echo off
-REM Fetch deps + Android NDK
+REM fetch deps + Android NDK
 
 echo [*] Setting up dependencies...
 
@@ -63,8 +63,13 @@ if not exist external\spookyhash (
     git clone --depth 1 https://github.com/buhanec/spookyhash.git external/spookyhash
 )
 
+if not exist external\brotli (
+    echo [*] Cloning brotli ^(google/brotli v1.1.0; catalog compression + asset decompression^)...
+    git clone --depth 1 --branch v1.1.0 https://github.com/google/brotli.git external/brotli
+)
+
 REM external\miniyaml and external\jwtcrypto are vendored (committed) single-purpose
-REM libs -- nothing to fetch.
+REM libs -- nothing to fetch
 
 if not exist external\android-ndk-r26d (
     echo [*] Downloading Android NDK r26d ^(this may take a while^)...

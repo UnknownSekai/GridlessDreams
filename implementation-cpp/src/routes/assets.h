@@ -1,7 +1,7 @@
 #pragma once
 #include "httplib_config.h"
 
-// Addressables catalog / bundle / notation routes. Ports routes/assets.py.
+// Addressables catalog / bundle / notation routes. ports routes/assets.py.
 
 namespace routes {
 

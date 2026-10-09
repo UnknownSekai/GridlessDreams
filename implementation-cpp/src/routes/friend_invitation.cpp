@@ -3,7 +3,7 @@
 #include "headers.h"
 #include "wire.h"
 
-// ports routes/friend_invitation.py — all four endpoints are stubs returning default results.
+// ports routes/friend_invitation.py — all four endpoints are stubs returning default results
 
 namespace routes {
 

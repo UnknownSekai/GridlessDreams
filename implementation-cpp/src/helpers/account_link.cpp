@@ -54,7 +54,7 @@ std::pair<wire::json, std::optional<long long>> register_take_over_password(
         return {wire::json::object(), std::nullopt};
     }
     // the linkage code is the player's durable account address -- reuse the existing code and
-    // only allocate one on first registration, so re-registering does not invalidate it.
+    // only allocate one on first registration, so re-registering does not invalidate it
     std::optional<db::json> existing = db::fetchrow(db::user::get_connect_with_passwords(*user_id));
     std::string linkage_code;
     if (existing && !(*existing)["linkageCode"].is_null()) {

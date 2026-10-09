@@ -4,15 +4,15 @@
 #include <vector>
 #include <unordered_map>
 
-// Union discriminator maps from models/unions.py: entity/notification type name ->
-// int union key (the reversed IDATA_OBJECT / INOTIFICATION_OBJECT dicts). Only the
+// union discriminator maps from models/unions.py: entity/notification type name ->
+// int union key (the reversed IDATA_OBJECT / INOTIFICATION_OBJECT dicts). only the
 // name->key maps are ported; the union classes are handled by the generic wire layer.
 // user_data/game_state use the lookup for present/notification entries and iterate the
 // ordered items to build their type registry.
 
 namespace unions {
 
-// IDATA_OBJECT_KEY as ordered (name, key) pairs, in the python dict's insertion order.
+// IDATA_OBJECT_KEY as ordered (name, key) pairs, in the python dict's insertion order
 inline const std::vector<std::pair<std::string, int>>& idata_object_key_items() {
     static const std::vector<std::pair<std::string, int>> items = {
         {"User", 0},
@@ -204,7 +204,7 @@ inline const std::vector<std::pair<std::string, int>>& idata_object_key_items() 
     return items;
 }
 
-// INOTIFICATION_OBJECT_KEY as ordered (name, key) pairs.
+// INOTIFICATION_OBJECT_KEY as ordered (name, key) pairs
 inline const std::vector<std::pair<std::string, int>>& inotification_object_key_items() {
     static const std::vector<std::pair<std::string, int>> items = {
         {"MissionCleared", 0},
@@ -233,12 +233,12 @@ inline const std::unordered_map<std::string, int>& inotification_object_key_map(
     return m;
 }
 
-// IDATA_OBJECT_KEY[name]: type name -> union key (throws if absent, like a python KeyError).
+// IDATA_OBJECT_KEY[name]: type name -> union key (throws if absent, like a python KeyError)
 inline int idata_object_key(const std::string& name) {
     return idata_object_key_map().at(name);
 }
 
-// INOTIFICATION_OBJECT_KEY[name]: notification type name -> union key.
+// INOTIFICATION_OBJECT_KEY[name]: notification type name -> union key
 inline int inotification_object_key(const std::string& name) {
     return inotification_object_key_map().at(name);
 }

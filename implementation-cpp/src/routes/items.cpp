@@ -4,7 +4,7 @@
 #include "headers.h"
 #include "wire.h"
 
-// ports routes/items.py — every endpoint is a stub.
+// ports routes/items.py — every endpoint is a stub
 
 namespace routes {
 

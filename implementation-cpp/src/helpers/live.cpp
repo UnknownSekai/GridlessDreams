@@ -16,8 +16,8 @@
 #include "helpers/effects.h"
 #include "master_data.h"
 
-// Ports helpers/live.py. The returned LiveUnit carries actors/time_events as ordered_json
-// objects keyed by the decimal int (position / timing-second). In the wire they are
+// ports helpers/live.py. the returned LiveUnit carries actors/time_events as ordered_json
+// objects keyed by the decimal int (position / timing-second). in the wire they are
 // Dictionary<int,V> with integer map keys and a value model that base=="Dictionary" cannot
 // name, so the live routes special-case these two fields when serializing (see PORT plan).
 
@@ -29,7 +29,7 @@ using ll = long long;
 using ojson = wire::json;   // ordered_json: master rows + wire entities
 using djson = db::json;     // db rows (camelCase)
 
-// floor division matching python's `//` (all operands here are non-negative).
+// floor division matching python's `//` (all operands here are non-negative)
 ll floordiv(ll a, ll b) {
     ll q = a / b, r = a % b;
     if (r != 0 && ((r < 0) != (b < 0))) --q;
@@ -72,7 +72,7 @@ std::optional<ojson> opt_master(const ojson* p) {
     return *p;
 }
 
-// accessories.get(slot.<key>) / posters.get(slot.<key>) -- null id or missing -> none.
+// accessories.get(slot.<key>) / posters.get(slot.<key>) -- null id or missing -> none
 std::optional<ojson> acc_opt(const std::unordered_map<ll, ojson>& m, const djson& slot,
                              const char* key) {
     auto it = slot.find(key);
@@ -94,7 +94,7 @@ std::unordered_map<ll, ojson> index_ord(std::vector<djson> rows, const char* key
     return m;
 }
 
-// _MASTERS: {id_: row} over a master table, built once per table (header_name PascalCase).
+// _MASTERS: {id_: row} over a master table, built once per table (header_name PascalCase)
 const std::unordered_map<ll, const ojson*>& by_id(const std::string& header) {
     static std::map<std::string, std::unordered_map<ll, const ojson*>> cache;
     static std::mutex mu;
@@ -109,7 +109,7 @@ const std::unordered_map<ll, const ojson*>& by_id(const std::string& header) {
     return cache.emplace(header, std::move(m)).first->second;
 }
 
-// SenseTypes and SenseLightTypes share values; a sense of light-less type yields no lights.
+// SenseTypes and SenseLightTypes share values; a sense of light-less type yields no lights
 std::vector<ll> lights_of(ll sense_type, ll count) {
     if (sense_type < enums::SenseLightTypes::Variable || sense_type > enums::SenseLightTypes::Special)
         return {};
@@ -130,7 +130,7 @@ bool has_cancel_sense(const std::vector<effects::AppliedEffect>& effs) {
     return false;
 }
 
-// _STATUS_LEVEL: {level: character_status_level}, built once.
+// _STATUS_LEVEL: {level: character_status_level}, built once
 ll status_level(ll level) {
     static const std::unordered_map<ll, ll> m = [] {
         std::unordered_map<ll, ll> r;
@@ -142,7 +142,7 @@ ll status_level(ll level) {
     return it == m.end() ? 0 : it->second;
 }
 
-// _STAR_RANK_BONUS: {rank: status_bonus} (percent points), built once.
+// _STAR_RANK_BONUS: {rank: status_bonus} (percent points), built once
 double star_rank_bonus(ll star_rank) {
     static const std::unordered_map<ll, double> m = [] {
         std::unordered_map<ll, double> r;
@@ -156,7 +156,7 @@ double star_rank_bonus(ll star_rank) {
 
 // base_stat = min_level_status + base_stat_bonuses + story_read_bonus;
 // level_scaled = floor(base_stat * status_level(level) / 100); factor = (100 + intrinsic)/100;
-// char_status = floor(level_scaled applied as base_stat * sl * factor).
+// char_status = floor(level_scaled applied as base_stat * sl * factor)
 std::tuple<ll, ll, ll> character_base_status(const ojson* character_master, ll level,
                                              std::tuple<ll, ll, ll> base_stat_bonuses,
                                              ll story_read_bonus, double intrinsic) {
@@ -177,7 +177,7 @@ std::tuple<ll, ll, ll> character_base_status(const ojson* character_master, ll l
 }
 
 // 3-stage integer-truncation pipeline: stage1 flat + component% (floored per source), stage2
-// performance% (floored per source), stage3 multiplication. Returns a LiveStatus entity.
+// performance% (floored per source), stage3 multiplication. returns a LiveStatus entity.
 ojson calculate_slot_status(std::tuple<ll, ll, ll> char_status, std::tuple<ll, ll, ll> flat_bonuses,
                             const std::map<ll, std::tuple<ll, ll, ll>>& comp_pcts,
                             const std::map<ll, ll>& perf_pcts, double multiplier) {
@@ -244,7 +244,7 @@ ojson party_composition(const std::vector<djson>& slots,
     return effects::party_composition(members);
 }
 
-// position -> firing-sense info (sense id/master/cool_time/lights, incl. effect-added lights).
+// position -> firing-sense info (sense id/master/cool_time/lights, incl. effect-added lights)
 struct PosSense {
     ll sense_master_id = 0;
     ll sense_id = 0;
@@ -287,7 +287,7 @@ std::map<ll, PosSense> position_senses(
     return pos_sense;
 }
 
-// StarActConditionMaster light fields -> SenseLightTypes, in python's _LIGHT_FIELDS order.
+// StarActConditionMaster light fields -> SenseLightTypes, in python's _LIGHT_FIELDS order
 const std::pair<ll, const char*> kLightFields[] = {
     {enums::SenseLightTypes::Support, "support_light"},
     {enums::SenseLightTypes::Control, "control_light"},
@@ -296,7 +296,7 @@ const std::pair<ll, const char*> kLightFields[] = {
 };
 
 // (typed light requirements, free-light count) for the leader's star act, with
-// DecreaseRequire*Light reductions applied.
+// DecreaseRequire*Light reductions applied
 std::pair<std::map<ll, ll>, ll> star_act_condition(
     const std::vector<djson>& slots, const std::unordered_map<ll, djson>& chars,
     const std::unordered_map<ll, const ojson*>& character_master, ll leader_position,
@@ -432,7 +432,7 @@ LiveTimeEventData live_time_event(const std::map<ll, PosSense>& pos_sense, ll mu
             for (const ojson& d : *dit)
                 windows.emplace_back(jint(d, "timing_second", 0), jint(d, "position", 0));
     } else {
-        // normal live: 8 windows evenly spread, firing in formation order 1-2-3-4-5-3-2-1.
+        // normal live: 8 windows evenly spread, firing in formation order 1-2-3-4-5-3-2-1
         ll step = floordiv(music_time_second, 9);
         static const ll formation[8] = {1, 2, 3, 4, 5, 3, 2, 1};
         for (int i = 1; i <= 8; ++i) windows.emplace_back(step * i, formation[i - 1]);
@@ -443,7 +443,7 @@ LiveTimeEventData live_time_event(const std::map<ll, PosSense>& pos_sense, ll mu
     std::map<ll, ll> last_act;
     LiveTimeEventData out;
 
-    // opening window (timing_seconds=0): grant initial StartLive lights, evaluate opening star act.
+    // opening window (timing_seconds=0): grant initial StartLive lights, evaluate opening star act
     if (!initial_lights.empty()) {
         auto res = mgr.grant(initial_lights);
         ojson ev = make_timing_event(mgr.lights, res.first ? res.second : std::vector<ll>{}, res.first,
@@ -458,7 +458,7 @@ LiveTimeEventData live_time_event(const std::map<ll, PosSense>& pos_sense, ll mu
         auto lit = last_act.find(pos);
         bool have_prev = lit != last_act.end();
         ll cool = sense ? sense->cool_time : 0;
-        // a window whose sense is still on cool_time can't fire -> collected lights lost.
+        // a window whose sense is still on cool_time can't fire -> collected lights lost
         bool lost = sense == nullptr || (have_prev && (sec - lit->second) < cool);
         bool fired = false;
         std::vector<ll> added;
@@ -608,7 +608,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
     ojson comp = party_composition(slots, chars, character_master, sense_master);
     std::optional<ojson> comp_opt = comp;
 
-    // pass 1: collect each slot's full effects, aggregate the party's All-range effects.
+    // pass 1: collect each slot's full effects, aggregate the party's All-range effects
     std::map<ll, std::vector<effects::AppliedEffect>> slot_effects;
     std::vector<effects::AppliedEffect> party_all = effects::album_effects(album_level, comp_opt);
     for (const djson& slot : slots) {
@@ -635,7 +635,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
         slot_effects[position] = std::move(eff);
     }
 
-    // MaxPrincipal = base + party-wide All-range + every slot's own PrincipalGaugeLimitUp effects.
+    // MaxPrincipal = base + party-wide All-range + every slot's own PrincipalGaugeLimitUp effects
     std::vector<effects::AppliedEffect> principal_list = party_all;
     for (const auto& kv : slot_effects) {  // slot_effects.values(): once per position
         auto self_range = effects::range_split(kv.second).first;
@@ -679,7 +679,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
         eff.insert(eff.end(), matched_party.begin(), matched_party.end());
         eff.insert(eff.end(), circle.begin(), circle.end());
 
-        // intrinsic (percent points): awakening phase (10%/phase) + star rank bonus + BaseCorrection.
+        // intrinsic (percent points): awakening phase (10%/phase) + star rank bonus + BaseCorrection
         double intrinsic = static_cast<double>(jint(*ch, "awakeningPhase", 0)) * 10.0 +
                            star_rank_bonus(base ? jint(*base, "starRank", 0) : 0) +
                            effects::base_correction(eff);
@@ -732,7 +732,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
                 sense["acquirable_lights"] = lights;
             }
             // non-Optional list fields default to [] in python (model default_factory);
-            // generated keys mark them nullable so a missing field would encode as nil.
+            // generated keys mark them nullable so a missing field would encode as nil
             sense["pre_sense_effect"] = ojson::array();
             sense["sense_effect"] = std::move(sense_effect);
             sense["poster_effect"] = ojson::array();
@@ -741,7 +741,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
             sense["original_actor_id"] = jint(*ch, "id", 0);
             senses.push_back(std::move(sense));
         }
-        // start effects emitted once from their source slot.
+        // start effects emitted once from their source slot
         auto se = effects::start_effects(full, jint(*ch, "id", 0),
                                          static_cast<ll>(start_effects_all.size()));
         for (auto& e : se) start_effects_all.push_back(std::move(e));
@@ -769,7 +769,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
             }
     }
 
-    // normal live: time events spread over the song duration (no sense notation).
+    // normal live: time events spread over the song duration (no sense notation)
     const ojson* music = lm ? mget(by_id("MusicMaster"), jint(*lm, "music_master_id", 0)) : nullptr;
     std::map<ll, PosSense> pos_sense = position_senses(slots, chars, character_master, sense_master,
                                                        star_act_master, accessories, posters, comp_opt);
@@ -795,7 +795,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
     std::map<ll, ojson> time_events;  // keyed by timing second; last window per second wins
     for (const SenseTimingEvent& t : lte.timings) time_events[t.timing_seconds] = t.event;
 
-    // lights needed for a star act = the leader's typed requirements + free lights.
+    // lights needed for a star act = the leader's typed requirements + free lights
     ll star_act_sense_light_count = condition.second;
     for (const auto& kv : condition.first) star_act_sense_light_count += kv.second;
 
@@ -815,7 +815,7 @@ std::pair<wire::json, long long> build_live_unit(long long user_id, long long pa
     unit["total_status"] = total_status;
     unit["star_act_sense_light_count"] = star_act_sense_light_count;
     unit["max_principal"] = principal_max;
-    // base_score_difficulty_auto_coefficient: per-difficulty, server-set (tutorial 0.95).
+    // base_score_difficulty_auto_coefficient: per-difficulty, server-set (tutorial 0.95)
     unit["base_score_difficulty_auto_coefficient"] = 0.95;
     unit["is_first_play_olivier"] = is_first_olivier;
     unit["u_active_live_id"] = live_id;

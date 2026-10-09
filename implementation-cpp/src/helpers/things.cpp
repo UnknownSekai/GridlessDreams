@@ -97,7 +97,7 @@ long long _random_id() {
     return dist(_engine());
 }
 
-// id_-keyed master lookups, memoized per header name (python's _masters dict).
+// id_-keyed master lookups, memoized per header name (python's _masters dict)
 std::unordered_map<std::string, std::unordered_map<long long, const json*>> _masters;
 
 const std::unordered_map<long long, const json*>& _by_id(const std::string& header_name) {
@@ -128,7 +128,7 @@ json _received_thing(long long type, long long thing_id, long long quantity) {
 
 void _grant_character(long long user_id, long long character_master_id) {
     // Character.characterBaseId points at an owned CharacterBase (shared across a
-    // character's variants); resolve it via CharacterMaster.character_base_master_id.
+    // character's variants); resolve it via CharacterMaster.character_base_master_id
     const json* master = _lookup("CharacterMaster", character_master_id);
     std::optional<long long> base_master_id =
         master ? std::optional<long long>(master->at("character_base_master_id").get<long long>())
@@ -154,7 +154,7 @@ void _grant_character(long long user_id, long long character_master_id) {
 
 void _grant_accessory(long long user_id, long long accessory_master_id) {
     // fixed effects stay derived from AccessoryMaster on demand; only the rolled random
-    // effects (one per random_effect_group) are persisted in accessory_effects.
+    // effects (one per random_effect_group) are persisted in accessory_effects
     const json* master = _lookup("AccessoryMaster", accessory_master_id);
     json effects = json::array();
     if (master) {
@@ -178,7 +178,7 @@ void _grant_accessory(long long user_id, long long accessory_master_id) {
 }  // namespace
 
 std::optional<std::string> present_type(long long thing_type) {
-    // all valid ThingTypes are mapped, so a missing key mirrors python's T() ValueError -> None.
+    // all valid ThingTypes are mapped, so a missing key mirrors python's T() ValueError -> None
     const auto& m = _present_type();
     auto it = m.find(thing_type);
     if (it == m.end()) return std::nullopt;
@@ -241,7 +241,7 @@ std::vector<json> grant_things_consolidated(long long user_id,
     }
 
     long long coin = 0, jewel = 0, stamina = 0;
-    std::vector<std::pair<std::int64_t, std::int64_t>> items;
+    std::vector<std::pair<long long, long long>> items;
     std::vector<std::tuple<long long, long long, long long>> others;
     std::vector<json> received;
     for (const auto& key : seq) {

@@ -17,7 +17,7 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// NotificationContentResult() pydantic defaults: the two enum fields default to 1, not 0.
+// NotificationContentResult() pydantic defaults: the two enum fields default to 1, not 0
 json notification_content_result() {
     return json{
         {"notification_tab_category", enums::NotificationTabCategory::Important},
@@ -35,9 +35,9 @@ void register_home(httplib::Server& svr) {
 
     svr.Post("/api/Home/CheckReceiveLoginBonus", [](const httplib::Request&, httplib::Response& res) {
         // TODO: build LoginBonusResult[] from masterdata + grant the day's rewards via
-        // things::grant_things (to_inbox=true). Blocked: LoginBonusMaster /
+        // things::grant_things (to_inbox=true). blocked: LoginBonusMaster /
         // LoginBonusDetailMaster / LoginBonusSpineGroupMaster are NOT in our unpacked masterdata
-        // (only LoginBonusSpineCostumeMaster is). Return [] (no bonus) rather than a bogus id-0 one.
+        // (only LoginBonusSpineCostumeMaster is). return [] (no bonus) rather than a bogus id-0 one.
         send(res, wire::common_response("LoginBonusResult", json::array()));
     });
 

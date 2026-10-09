@@ -9,10 +9,10 @@
 #include "db/user.h"
 #include "master_data.h"
 
-// Ports helpers/music_unlock.py; see that file for the reasoning behind each release rule.
-// Master rows are ordered_json keyed by field name (LiveMaster: id_, difficulty,
+// ports helpers/music_unlock.py; see that file for the reasoning behind each release rule.
+// master rows are ordered_json keyed by field name (LiveMaster: id_, difficulty,
 // music_master_id, level, unlock_condition, unlock_value). DB rows are nlohmann::json keyed
-// by the camelCase column name. The async conn/app params are dropped for the global db
+// by the camelCase column name. the async conn/app params are dropped for the global db
 // engine; ensure_default_music runs under db::transaction() (the pg_advisory lock is dropped,
 // transaction() already serializes writers).
 
@@ -22,7 +22,7 @@ namespace {
 
 using mjson = nlohmann::ordered_json;  // master-data row
 
-// _BY_ID / _BY_MUSIC, built once from cache.live_master.
+// _BY_ID / _BY_MUSIC, built once from cache.live_master
 struct Index {
     std::map<long long, const mjson*> by_id;
     std::map<long long, std::map<long long, const mjson*>> by_music;
@@ -148,7 +148,7 @@ std::vector<nlohmann::json> apply_unlocks(long long user_id,
                                           std::optional<long long> stella_unlock) {
     MusicProgress progress = load_progress(user_id, stella_unlock);
     std::vector<nlohmann::json> changed;
-    std::vector<std::tuple<std::int64_t, bool, std::int64_t>> changes;
+    std::vector<std::tuple<long long, bool, long long>> changes;
     std::vector<nlohmann::json> musics = db::fetch(db::user::get_musics(user_id));
     for (nlohmann::json& music : musics) {
         bool new_stella = progress.stella_released(music.at("musicMasterId").get<long long>(),
@@ -161,7 +161,7 @@ std::vector<nlohmann::json> apply_unlocks(long long user_id,
             new_status != music.at("olivierReleaseStatus").get<long long>()) {
             music["stellaReleased"] = new_stella;
             music["olivierReleaseStatus"] = new_status;
-            changes.emplace_back(music.at("id").get<std::int64_t>(), new_stella, new_status);
+            changes.emplace_back(music.at("id").get<long long>(), new_stella, new_status);
             changed.push_back(music);
         }
     }

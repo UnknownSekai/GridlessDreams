@@ -19,18 +19,18 @@ using rjson = nlohmann::json;          // db rows (camelCase columns)
 using ojson = nlohmann::ordered_json;  // master rows, payloads + wire results
 
 // list(column or []) for an int array column
-std::vector<int64_t> int_list(const rjson& value) {
-    std::vector<int64_t> out;
+std::vector<long long> int_list(const rjson& value) {
+    std::vector<long long> out;
     if (value.is_array())
-        for (const rjson& v : value) out.push_back(v.get<int64_t>());
+        for (const rjson& v : value) out.push_back(v.get<long long>());
     return out;
 }
 
-bool contains(const std::vector<int64_t>& xs, int64_t x) {
+bool contains(const std::vector<long long>& xs, long long x) {
     return std::find(xs.begin(), xs.end(), x) != xs.end();
 }
 
-void toggle_favorite_stamp(const httplib::Request& req, httplib::Response& res, int64_t ident,
+void toggle_favorite_stamp(const httplib::Request& req, httplib::Response& res, long long ident,
                            bool add) {
     try {
         game_state::State s = game_state::transaction(req);
@@ -39,15 +39,15 @@ void toggle_favorite_stamp(const httplib::Request& req, httplib::Response& res, 
         if (row == nullptr || m == nullptr ||
             (!m->at("is_default").get<bool>() && !contains(int_list(row->at("stampMasterIds")), ident)))
             throw game_state::Rejected();
-        std::vector<int64_t> favorites = int_list(row->at("favoriteStampMasterIds"));
+        std::vector<long long> favorites = int_list(row->at("favoriteStampMasterIds"));
         if (add) {
             if (!contains(favorites, ident)) {
                 favorites.push_back(ident);
                 game_state::mission_progress(s, 21, 1, true);
             }
         } else {
-            std::vector<int64_t> kept;
-            for (int64_t v : favorites)
+            std::vector<long long> kept;
+            for (long long v : favorites)
                 if (v != ident) kept.push_back(v);
             favorites = std::move(kept);
         }
@@ -67,14 +67,14 @@ void register_possessions(httplib::Server& svr) {
     // /api/Possessions/AddFavoriteStamp/{mStampId}
     svr.Post("/api/Possessions/AddFavoriteStamp/:mStampId",
              [](const httplib::Request& req, httplib::Response& res) {
-                 int64_t m_stamp_id = std::stoll(req.path_params.at("mStampId"));
+                 long long m_stamp_id = std::stoll(req.path_params.at("mStampId"));
                  toggle_favorite_stamp(req, res, m_stamp_id, true);
              });
 
     // /api/Possessions/RemoveFavoriteStamp/{mStampId}
     svr.Post("/api/Possessions/RemoveFavoriteStamp/:mStampId",
              [](const httplib::Request& req, httplib::Response& res) {
-                 int64_t m_stamp_id = std::stoll(req.path_params.at("mStampId"));
+                 long long m_stamp_id = std::stoll(req.path_params.at("mStampId"));
                  toggle_favorite_stamp(req, res, m_stamp_id, false);
              });
 
@@ -83,18 +83,18 @@ void register_possessions(httplib::Server& svr) {
         try {
             ojson p = wire::read_request(req.body, "CostumeFavoritePayload");
             if (p.is_null()) throw game_state::Rejected();
-            int64_t base = p.value("character_base_master_id", static_cast<int64_t>(0));
-            int64_t ident = p.value("costume_master_id", static_cast<int64_t>(0));
+            long long base = p.value("character_base_master_id", static_cast<long long>(0));
+            long long ident = p.value("costume_master_id", static_cast<long long>(0));
             bool set_favorite = p.value("set_favorite", false);
             game_state::State s = game_state::transaction(req);
             game_state::costume_owned(s, base, ident);
             rjson* row = s.one("FavoriteCostume", rjson{{"characterBaseMasterId", base}});
-            std::vector<int64_t> favorites =
-                row != nullptr ? int_list(row->at("favoriteCostumeMasterIds")) : std::vector<int64_t>{};
+            std::vector<long long> favorites =
+                row != nullptr ? int_list(row->at("favoriteCostumeMasterIds")) : std::vector<long long>{};
             if (set_favorite && !contains(favorites, ident)) favorites.push_back(ident);
             if (!set_favorite) {
-                std::vector<int64_t> kept;
-                for (int64_t v : favorites)
+                std::vector<long long> kept;
+                for (long long v : favorites)
                     if (v != ident) kept.push_back(v);
                 favorites = std::move(kept);
             }
@@ -119,18 +119,18 @@ void register_possessions(httplib::Server& svr) {
                  try {
                      ojson p = wire::read_request(req.body, "FavoriteStampOrderPayload");
                      if (p.is_null()) throw game_state::Rejected();
-                     std::vector<int64_t> order;
+                     std::vector<long long> order;
                      if (p.contains("stamp_master_ids") && p["stamp_master_ids"].is_array())
                          for (const ojson& v : p["stamp_master_ids"])
-                             order.push_back(v.get<int64_t>());
+                             order.push_back(v.get<long long>());
                      game_state::State s = game_state::transaction(req);
                      rjson* row = s.one("Stamp");
                      if (row == nullptr) throw game_state::Rejected();
                      // a reorder keeps exactly the current favorites, only their sequence changes
-                     std::unordered_set<int64_t> current;
-                     for (int64_t v : int_list(row->at("favoriteStampMasterIds"))) current.insert(v);
-                     std::vector<int64_t> ordered;
-                     for (int64_t i : order)
+                     std::unordered_set<long long> current;
+                     for (long long v : int_list(row->at("favoriteStampMasterIds"))) current.insert(v);
+                     std::vector<long long> ordered;
+                     for (long long i : order)
                          if (current.count(i)) ordered.push_back(i);
                      s.update("Stamp", row, rjson{{"favoriteStampMasterIds", ordered}});
                      s.commit();

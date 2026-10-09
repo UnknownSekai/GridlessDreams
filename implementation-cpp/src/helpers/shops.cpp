@@ -9,7 +9,7 @@
 #include "generated/enums_generated.h"
 #include "master_data.h"
 
-// Ports helpers/shops.py. Reverse indexes over the four shop masters are built lazily; see the
+// ports helpers/shops.py. reverse indexes over the four shop masters are built lazily; see the
 // Python source for the reasoning behind each rule. RNG is not byte-identical to Python's
 // random module -- roll_market mirrors the logic, not the draw sequence.
 
@@ -25,7 +25,7 @@ constexpr long long JST_OFFSET_US = 9LL * 3600LL * US_PER_SEC;  // _JST = UTC+9
 std::unordered_map<long long, std::pair<json, json>> g_exchange_things;
 std::unordered_map<long long, json> g_market_frames;
 // frame number (master_id // 100) -> [MarketFrameThingMaster ids]; std::map keeps the keys
-// sorted for roll_market's sorted(_MARKET_POOLS).
+// sorted for roll_market's sorted(_MARKET_POOLS)
 std::map<long long, std::vector<long long>> g_market_pools;
 std::unordered_map<long long, json> g_permanent;
 std::unordered_map<long long, json> g_jewel_items;
@@ -41,7 +41,7 @@ void build() {
         }
     }
     // a frame's candidates are encoded in the master id: id // 100 is the frame, id % 100 the
-    // variant. Build the frame lookup and the pools in one pass -- a repeated id keeps its
+    // variant. build the frame lookup and the pools in one pass -- a repeated id keeps its
     // first-appearance slot in its pool while its value is overwritten, matching the dict.
     for (const json& f : master_data::table("MarketFrameThingMaster")) {
         long long id = f.at("id_").get<long long>();
@@ -65,7 +65,7 @@ long long floordiv(long long a, long long b) {
     return q;
 }
 
-// Howard Hinnant's days<->civil (days relative to 1970-01-01).
+// Howard Hinnant's days<->civil (days relative to 1970-01-01)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -157,7 +157,7 @@ std::mt19937_64& default_engine() {
 }
 
 // epoch-micros of the latest of today's hours (JST) at or before now, else the last of them
-// yesterday. Mirrors _most_recent.
+// yesterday. mirrors _most_recent.
 long long most_recent(long long now_micros, const std::vector<int>& hours) {
     long long jst = now_micros + JST_OFFSET_US;
     long long day_index = floordiv(jst, US_PER_DAY);
@@ -313,12 +313,12 @@ std::optional<std::set<std::string>> charge(long long user_id, long long thing_t
             }
         if (row == nullptr || row->at("stock").get<long long>() < quantity) return std::nullopt;
         // increment_item_stock is a data-modifying CTE: in the SQLite port it executes itself
-        // (returning the command tag), so it is not wrapped in db::execute.
+        // (returning the command tag), so it is not wrapped in db::execute
         db::user::increment_item_stock(user_id, thing_id, -quantity);
         return std::set<std::string>{"Item"};
     }
 
-    // nothing else is ever priced in a captured shop entry; refuse rather than grant free.
+    // nothing else is ever priced in a captured shop entry; refuse rather than grant free
     return std::nullopt;
 }
 

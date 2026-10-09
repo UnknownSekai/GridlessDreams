@@ -14,7 +14,7 @@ namespace unions {
 extern const std::map<int, std::string> IDATA_OBJECT;
 extern const std::map<int, std::string> INOTIFICATION_OBJECT;
 
-// entity name -> discriminator key, for IDATA_OBJECT_KEY[name] style lookups.
+// entity name -> discriminator key, for IDATA_OBJECT_KEY[name] style lookups
 extern const std::unordered_map<std::string, int> IDATA_OBJECT_KEY;
 extern const std::unordered_map<std::string, int> INOTIFICATION_OBJECT_KEY;
 

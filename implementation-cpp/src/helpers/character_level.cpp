@@ -7,13 +7,13 @@
 #include "generated/enums_generated.h"
 #include "master_data.h"
 
-// ports helpers/character_level.py; see that file for the reasoning behind each curve rule.
+// ports helpers/character_level.py; see that file for the reasoning behind each curve rule
 
 namespace character_level {
 
 namespace {
 
-// How much of the curve a character actually has to pay, by rarity. 0.3 / 0.5 / 0.8 / 1.0 stored
+// how much of the curve a character actually has to pay, by rarity. 0.3 / 0.5 / 0.8 / 1.0 stored
 // as value*kScale so the arithmetic stays exact (0.3 is not representable as a double).
 const Decimal kUnknownRarityCoefficient{0};
 const Decimal kMaxExperienceCoefficient{10};  // _MAX_EXPERIENCE_COEFFICIENT (defined, unused)
@@ -24,7 +24,7 @@ const std::map<long long, Decimal> kRequiredExperienceCoefficient = {
     {enums::CharacterRarities::Rare4, Decimal{10}},
 };
 
-// Howard Hinnant's days-from-civil (days relative to 1970-01-01).
+// Howard Hinnant's days-from-civil (days relative to 1970-01-01)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -99,7 +99,7 @@ bool iso_epoch_seconds(const std::string& s, long long& out) {
 
 long long now_utc() { return static_cast<long long>(std::time(nullptr)); }
 
-// {level: row} over CharacterLevelMaster, built once.
+// {level: row} over CharacterLevelMaster, built once
 const std::map<long long, const json*>& levels() {
     static const std::map<long long, const json*> m = [] {
         std::map<long long, const json*> r;
@@ -110,7 +110,7 @@ const std::map<long long, const json*>& levels() {
     return m;
 }
 
-// {id_: row} over CharacterMaster, built once.
+// {id_: row} over CharacterMaster, built once
 const std::map<long long, const json*>& characters() {
     static const std::map<long long, const json*> m = [] {
         std::map<long long, const json*> r;
@@ -121,7 +121,7 @@ const std::map<long long, const json*>& characters() {
     return m;
 }
 
-// {item_master_id: row} over CharacterExperienceItemMaster, keeping dict insertion order.
+// {item_master_id: row} over CharacterExperienceItemMaster, keeping dict insertion order
 struct ExpIndex {
     std::vector<long long> order;
     std::unordered_map<long long, const json*> map;

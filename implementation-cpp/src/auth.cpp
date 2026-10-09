@@ -25,13 +25,13 @@ constexpr long long SESSION_TTL = 86400; // authenticated session token
 
 std::string secret() { return config::get_str("jwt_secret"); }
 
-// {"typ":"JWT","alg":"HS256"} serialized with PyJWT's sort_headers=True -> sorted keys.
+// {"typ":"JWT","alg":"HS256"} serialized with PyJWT's sort_headers=True -> sorted keys
 std::string header_segment() {
     return jwtcrypto::base64url_encode(std::string("{\"alg\":\"HS256\",\"typ\":\"JWT\"}"));
 }
 
 // jwt.encode(claims, secret, algorithm="HS256"): compact json (insertion order),
-// ensure_ascii like python json.dumps, then HS256 over header.payload.
+// ensure_ascii like python json.dumps, then HS256 over header.payload
 std::string encode_hs256(const wire::json& claims) {
     std::string head = header_segment();
     std::string body = jwtcrypto::base64url_encode(claims.dump(-1, ' ', true));
@@ -40,7 +40,7 @@ std::string encode_hs256(const wire::json& claims) {
     return signing_input + "." + jwtcrypto::base64url_encode(mac.data(), mac.size());
 }
 
-// JST (UTC+9); roll back to the previous day before 05:00; format fixed at 05:00:00.
+// JST (UTC+9); roll back to the previous day before 05:00; format fixed at 05:00:00
 std::string login_day() {
     std::time_t jst = std::time(nullptr) + 9 * 3600;
     std::tm tmv = *std::gmtime(&jst);
@@ -53,7 +53,7 @@ std::string login_day() {
     return std::string(buf);
 }
 
-// secrets.token_urlsafe(nbytes): base64url of nbytes random bytes, no padding.
+// secrets.token_urlsafe(nbytes): base64url of nbytes random bytes, no padding
 std::string token_urlsafe(size_t nbytes) {
     std::random_device rd;
     std::vector<uint8_t> bytes(nbytes);
@@ -61,7 +61,7 @@ std::string token_urlsafe(size_t nbytes) {
     return jwtcrypto::base64url_encode(bytes.data(), bytes.size());
 }
 
-// GameVersions enum member name (used verbatim in the session token pf/gv claims).
+// GameVersions enum member name (used verbatim in the session token pf/gv claims)
 std::string game_version_name(long long v) {
     switch (v) {
         case 1: return "AppStore";
@@ -70,7 +70,7 @@ std::string game_version_name(long long v) {
     }
 }
 
-// _new_user_id: fetch nextval('user_id_seq') AS value.
+// _new_user_id: fetch nextval('user_id_seq') AS value
 long long new_user_id() {
     auto row = db::fetchrow(db::account::next_user_id());
     if (!row) throw std::runtime_error("could not allocate a user id");
@@ -205,7 +205,7 @@ wire::json register_(const wire::json& payload) {
 }
 
 wire::json authenticate(const wire::json& payload) {
-    // the login_token is a token we issued earlier; accept it even if expired.
+    // the login_token is a token we issued earlier; accept it even if expired
     std::string login_token;
     if (payload.contains("login_token") && payload["login_token"].is_string())
         login_token = payload["login_token"].get<std::string>();

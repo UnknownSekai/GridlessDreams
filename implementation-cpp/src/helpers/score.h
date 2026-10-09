@@ -1,8 +1,8 @@
 #pragma once
 #include "wire.h"
 
-// Score-block hash verification for Lives/FinishAndValidate. Ports helpers/score.py.
-// Each block's hash is a running cumulative sum chained from 0 (independently per block-type
+// score-block hash verification for Lives/FinishAndValidate. ports helpers/score.py.
+// each block's hash is a running cumulative sum chained from 0 (independently per block-type
 // list): a submission whose chain does not reproduce the reported hashes is a tampered score.
 //
 // payload is a FinishLivePayload wire::json whose *_score_blocks are null or arrays of blocks;

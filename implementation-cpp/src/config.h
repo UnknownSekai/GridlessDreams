@@ -2,9 +2,9 @@
 #include "json.hpp"
 #include <string>
 
-// Deployment config (config.yml) + server-logic constants (constants.yml).
-// Ports helpers/config.py and helpers/constants.py. config.yml's required keys
-// are validated on load (hard-fail, like the Python RuntimeError). The host/port
+// deployment config (config.yml) + server-logic constants (constants.yml).
+// ports helpers/config.py and helpers/constants.py. config.yml's required keys
+// are validated on load (hard-fail, like the Python RuntimeError). the host/port
 // and database section are the Python public deployment -- they parse but do NOT
 // drive the C++ server (it listens on 127.0.0.1:39046 and uses SQLite).
 
@@ -32,8 +32,8 @@ struct Realtime {
     bool auto_start = false;
 };
 
-// Read+validate config.yml. Safe to call repeatedly; the first access lazily
-// loads anyway. Throws std::runtime_error if a required key is missing.
+// read+validate config.yml. safe to call repeatedly; the first access lazily
+// loads anyway. throws std::runtime_error if a required key is missing.
 void load();
 
 long long   get_int(const std::string& key, long long def = 0);

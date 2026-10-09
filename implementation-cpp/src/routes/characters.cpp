@@ -22,7 +22,7 @@
 #include "pipeline.h"
 #include "wire.h"
 
-// ports routes/characters.py.
+// ports routes/characters.py
 
 namespace routes {
 namespace {
@@ -41,14 +41,14 @@ bool jbool(const json& obj, const char* key, bool def = false) {
     return it->get<bool>();
 }
 
-// one of the caller's characters by id, or none.
+// one of the caller's characters by id, or none
 std::optional<db::json> _character(long long user_id, long long character_id) {
     for (const db::json& c : db::fetch(db::user::get_characters(user_id)))
         if (c.at("id").get<long long>() == character_id) return c;
     return std::nullopt;
 }
 
-// everything the caller owns, {itemMasterId: stock}.
+// everything the caller owns, {itemMasterId: stock}
 std::map<long long, long long> _item_stock(long long user_id) {
     std::map<long long, long long> out;
     for (const db::json& i : db::fetch(db::user::get_items(user_id)))
@@ -56,7 +56,7 @@ std::map<long long, long long> _item_stock(long long user_id) {
     return out;
 }
 
-// charge a whole item bill in one statement; writes nothing unless every line is affordable.
+// charge a whole item bill in one statement; writes nothing unless every line is affordable
 bool _pay_items(long long user_id, const std::map<long long, long long>& cost,
                 std::optional<std::map<long long, long long>> stock = std::nullopt) {
     if (cost.empty()) return false;
@@ -66,13 +66,13 @@ bool _pay_items(long long user_id, const std::map<long long, long long>& cost,
         long long have = it == st.end() ? 0 : it->second;
         if (have < quantity) return false;
     }
-    std::vector<std::pair<std::int64_t, std::int64_t>> deltas;
+    std::vector<std::pair<long long, long long>> deltas;
     for (const auto& [i, q] : cost) deltas.emplace_back(i, -q);
     db::user::increment_item_stocks(user_id, deltas);
     return true;
 }
 
-// the exp items out of a stock -- what a level-up can spend.
+// the exp items out of a stock -- what a level-up can spend
 std::map<long long, long long> _experience_pool(const std::map<long long, long long>& stock) {
     std::map<long long, long long> out;
     for (const auto& [item, owned] : stock)
@@ -81,7 +81,7 @@ std::map<long long, long long> _experience_pool(const std::map<long long, long l
 }
 
 // official one/two-item captures round each item before multiplying quantity
-long long _actor_item_experience(const std::map<std::int64_t, std::int64_t>& costs, double bonus) {
+long long _actor_item_experience(const std::map<long long, long long>& costs, double bonus) {
     long long total = 0;
     for (const auto& [i, n] : costs) {
         std::optional<character_level::json> item = character_level::experience_item(i);
@@ -120,7 +120,7 @@ void register_characters(httplib::Server& svr) {
                  try {
                      long long characterId = std::stoll(req.path_params.at("characterId"));
                      json payloads = pipeline::read_request_list(req, "UseExperienceItemsPayload");
-                     std::map<std::int64_t, std::int64_t> costs;
+                     std::map<long long, long long> costs;
                      long long raw = 0;
                      double bonus_gain = 0;
                      for (const json& entry : payloads) {
@@ -252,7 +252,7 @@ void register_characters(httplib::Server& svr) {
                          std::map<long long, long long> stock;
                          for (const game_state::json& r : s.rows("Item"))
                              stock[r.at("itemMasterId").get<long long>()] = r.at("stock").get<long long>();
-                         std::map<std::int64_t, std::int64_t> costs;
+                         std::map<long long, long long> costs;
                          std::map<long long, long long> remaining = stock;
                          for (long long stage = talentStage; stage < stageTo; ++stage) {
                              const character_enhance::json* step = character_enhance::_bloom_step(
@@ -363,7 +363,7 @@ void register_characters(httplib::Server& svr) {
                 pipeline::respond(res, "BooleanResult", json::object());
                 return;
             }
-            std::vector<std::pair<std::int64_t, std::int64_t>> deltas;
+            std::vector<std::pair<long long, long long>> deltas;
             for (const auto& [i, q] : spent) deltas.emplace_back(i, -q);
             db::user::increment_item_stocks(*user_id, deltas);
             tx.commit();
@@ -474,7 +474,7 @@ void register_characters(httplib::Server& svr) {
                          const game_state::ojson* group =
                              game_state::master("character_episode_release_item_group_master", gid);
                          if (!group) throw game_state::Rejected();
-                         std::map<std::int64_t, std::int64_t> costs;
+                         std::map<long long, long long> costs;
                          auto items = group->find("items");
                          if (items != group->end() && items->is_array())
                              for (const auto& i : *items)

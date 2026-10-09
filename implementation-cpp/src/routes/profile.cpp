@@ -11,7 +11,7 @@
 #include "pipeline.h"
 #include "wire.h"
 
-// ports routes/profile.py.
+// ports routes/profile.py
 
 namespace routes {
 namespace {
@@ -63,7 +63,7 @@ std::size_t utf8_len(const std::string& s) {
 rjson copy_scalar(const ojson& v) {
     if (v.is_string()) return v.get<std::string>();
     if (v.is_boolean()) return v.get<bool>();
-    if (v.is_number()) return v.get<int64_t>();
+    if (v.is_number()) return v.get<long long>();
     return rjson(nullptr);
 }
 
@@ -80,18 +80,18 @@ void register_profile(httplib::Server& svr) {
             static const std::vector<std::pair<const char*, rjson>> FIELDS = {
                 {"name", rjson(nullptr)},
                 {"introduction", rjson(nullptr)},
-                {"main_u_character_id", rjson(static_cast<int64_t>(0))},
+                {"main_u_character_id", rjson(static_cast<long long>(0))},
                 {"m_nameplate_id", rjson(nullptr)},
-                {"m_name_color_id", rjson(static_cast<int64_t>(0))},
+                {"m_name_color_id", rjson(static_cast<long long>(0))},
                 {"m_trophy_id1", rjson(nullptr)},
                 {"m_trophy_id2", rjson(nullptr)},
                 {"m_trophy_id3", rjson(nullptr)},
                 {"is_public_player_rate", rjson(false)},
                 {"display_awakening_status", rjson(false)},
-                {"main_character_master_id", rjson(static_cast<int64_t>(0))},
-                {"name_base_color_masterid", rjson(static_cast<int64_t>(0))},
-                {"icon_frame_master_id", rjson(static_cast<int64_t>(0))},
-                {"home_skin_master_id", rjson(static_cast<int64_t>(0))},
+                {"main_character_master_id", rjson(static_cast<long long>(0))},
+                {"name_base_color_masterid", rjson(static_cast<long long>(0))},
+                {"icon_frame_master_id", rjson(static_cast<long long>(0))},
+                {"home_skin_master_id", rjson(static_cast<long long>(0))},
             };
             rjson values = rjson::object();
             for (const auto& f : FIELDS) {
@@ -105,11 +105,11 @@ void register_profile(httplib::Server& svr) {
             game_state::State s = game_state::transaction(req);
             rjson* row = s.one("UserProfile");
             if (row == nullptr) throw game_state::Rejected();
-            int64_t main_u = values.at("mainUCharacterId").get<int64_t>();
-            int64_t main_cmid = values.at("mainCharacterMasterId").get<int64_t>();
+            long long main_u = values.at("mainUCharacterId").get<long long>();
+            long long main_cmid = values.at("mainCharacterMasterId").get<long long>();
             rjson* actor = main_u ? s.one("Character", rjson{{"id", main_u}})
                                   : s.one("Character", rjson{{"characterMasterId", main_cmid}});
-            if (actor == nullptr || actor->at("characterMasterId").get<int64_t>() != main_cmid)
+            if (actor == nullptr || actor->at("characterMasterId").get<long long>() != main_cmid)
                 throw game_state::Rejected();
             if (!values.at("name").is_null() &&
                 utf8_len(values.at("name").get<std::string>()) > 100)

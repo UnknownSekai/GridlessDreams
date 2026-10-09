@@ -31,16 +31,16 @@ using ojson = game_state::ojson;   // master rows (ordered json)
 
 namespace {
 
-constexpr int64_t kMicro = 1'000'000;
+constexpr long long kMicro = 1'000'000;
 
 // time.time_ns() // 1000 (epoch micros)
-int64_t now_micros() { return static_cast<int64_t>(std::time(nullptr)) * kMicro; }
+long long now_micros() { return static_cast<long long>(std::time(nullptr)) * kMicro; }
 
 // python round(x, 4): nearest 1e-4, ties to even (FE_TONEAREST)
 double round4(double x) { return std::nearbyint(x * 10000.0) / 10000.0; }
 
 // python str(float): shortest round-tripping repr, fixed notation for this
-// field's magnitudes, always carrying a decimal point.
+// field's magnitudes, always carrying a decimal point
 std::string py_float_str(double v) {
     if (std::isnan(v)) return "nan";
     if (std::isinf(v)) return v < 0 ? "-inf" : "inf";
@@ -72,7 +72,7 @@ std::string py_float_str(double v) {
 bool is_truthy(const gjson& v) {
     if (v.is_null()) return false;
     if (v.is_boolean()) return v.get<bool>();
-    if (v.is_number_integer()) return v.get<int64_t>() != 0;
+    if (v.is_number_integer()) return v.get<long long>() != 0;
     if (v.is_number_unsigned()) return v.get<uint64_t>() != 0;
     if (v.is_number_float()) return v.get<double>() != 0.0;
     if (v.is_string()) return !v.get<std::string>().empty();
@@ -91,7 +91,7 @@ const json& payload_member(const json& p, const char* key) {
 }
 
 // self.dirty[(entity, pk)] = value -- replace in place (keeping position) or append
-void dirty_set(game_state::State& s, const std::string& entity, int64_t pk, const gjson& value) {
+void dirty_set(game_state::State& s, const std::string& entity, long long pk, const gjson& value) {
     for (auto& e : s.dirty)
         if (e.first.first == entity && e.first.second == pk) {
             e.second = value;
@@ -104,8 +104,8 @@ void dirty_set(game_state::State& s, const std::string& entity, int64_t pk, cons
 
 const nlohmann::json& rules() { return constants::raw(); }
 
-json daily(game_state::State& s, std::optional<int64_t> now) {
-    int64_t at = now.has_value() ? *now : now_micros();
+json daily(game_state::State& s, std::optional<long long> now) {
+    long long at = now.has_value() ? *now : now_micros();
     gjson* row = s.one("DailyLimit");
     gjson zero = {
         {"autoPlayTimes", 0},
@@ -114,9 +114,9 @@ json daily(game_state::State& s, std::optional<int64_t> now) {
         {"lastRefreshedAt", at},
     };
     if (row == nullptr) return s.insert("DailyLimit", zero);
-    int64_t last = 0;
+    long long last = 0;
     auto it = row->find("lastRefreshedAt");
-    if (it != row->end() && !it->is_null()) last = it->get<int64_t>();
+    if (it != row->end() && !it->is_null()) last = it->get<long long>();
     if (last < daily::most_recent_reset(at)) s.update("DailyLimit", row, zero);
     return *row;
 }
@@ -124,7 +124,7 @@ json daily(game_state::State& s, std::optional<int64_t> now) {
 void use_daily(game_state::State& s, const std::string& field) {
     json row = daily(s);
     if (!rules().at("unlimited_attempts").get<bool>()) {
-        int64_t next = row.at(field).get<int64_t>() + 1;
+        long long next = row.at(field).get<long long>() + 1;
         gjson* cached = s.one("DailyLimit");
         s.update("DailyLimit", cached, gjson{{field, next}});
     }
@@ -248,7 +248,7 @@ json rank_xp(game_state::State& s, long long amount) {
         stamina::adjust_and_check_stamina(s.uid, restore, rank);
         s.tables.erase("User");
         row = s.one("User");
-        dirty_set(s, "User", row->at("id").get<int64_t>(), *row);
+        dirty_set(s, "User", row->at("id").get<long long>(), *row);
     }
     if (rank != before)
         for (long long ident : {static_cast<long long>(1000), static_cast<long long>(1100)})

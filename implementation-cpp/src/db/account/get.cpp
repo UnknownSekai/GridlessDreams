@@ -2,7 +2,7 @@
 
 namespace db::account {
 
-// nextval('user_id_seq') -> sequences-table UPDATE ... RETURNING value (pre-increment).
+// nextval('user_id_seq') -> sequences-table UPDATE ... RETURNING value (pre-increment)
 SelectQuery next_user_id() {
     return SelectQuery(
         "SequenceValueModel",
@@ -17,7 +17,7 @@ SelectQuery get_user_id_by_hash(const std::string& hash_user_id) {
         hash_user_id);
 }
 
-SelectQuery get_account_by_id(int64_t user_id) {
+SelectQuery get_account_by_id(long long user_id) {
     return SelectQuery(
         "AccountModel", "SELECT * FROM \"accounts\" WHERE \"userId\" = $1", user_id);
 }

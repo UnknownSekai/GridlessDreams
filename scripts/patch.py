@@ -1,5 +1,5 @@
 """
-Simplified patcher for GridlessDreams.
+simplified patcher for GridlessDreams.
 
 Redirects the game to the local server, on BOTH Android (APK/XAPK) and iOS (IPA):
   1. ApplicationConfig._apiEndPoint (the first-hop API host) -> http://127.0.0.1:<port>.
@@ -37,11 +37,11 @@ TEMP_DIR = PROJECT_DIR / ".temp"
 TOOLS_DIR = TEMP_DIR / "tools"
 
 LOCALHOST_PORT = 39046
-# Modded-app package id (matches INSTALL.md) + display name.
+# modded-app package id (matches INSTALL.md) + display name
 PACKAGE_NAME = "com.utsk.gridlessdreams"
 APP_NAME = "GridlessDreams"
 
-# The first-hop API host (ApplicationConfig._apiEndPoint) -- the ONE value that redirects the
+# the first-hop API host (ApplicationConfig._apiEndPoint) -- the ONE value that redirects the
 # client to the local server. Every other endpoint (CDN / realtime / ...) is handed back by the
 # local server's POST /api/Environment response, so nothing else needs static patching. The host
 # lives in Data/sharedassets0.assets (a serialized MonoBehaviour string), NOT in global-metadata.dat,
@@ -57,7 +57,7 @@ UBER_SIGNER_URL = "https://github.com/patrickfav/uber-apk-signer/releases/downlo
 KEYSTORE_PATH = Path(__file__).resolve().parent.parent / "Dreams.keystore"
 KS_ALIAS = "Dreams"
 
-# Keystore password (never commit it). Resolution order:
+# keystore password (never commit it). Resolution order:
 #   1. DREAMS_KS_PASS env var, if set (optional override)
 #   2. otherwise secrets.json at the project root (gitignored), key "keystore_password"
 SECRETS_PATH = PROJECT_DIR / "secrets.json"
@@ -72,6 +72,9 @@ if not KS_PASS and SECRETS_PATH.exists():
 
 ASSETS_DIR = PROJECT_DIR / "assets"
 DATA_DIR = PROJECT_DIR / "data"
+# server data bundled into the app by default (config + masterdata + episodes); the C++ server
+# reads these via platform::read_file relative to its data dir. Overridable with --data-src.
+DATA_SRC = PROJECT_DIR / "implementation-python"
 
 
 # ========== UTILS ==========
@@ -105,27 +108,32 @@ def run(cmd: str):
 
 
 def bundle_data(dest_dir: Path):
-    """Copy masterdata + abinfo into the app. Assets are NOT bundled (too large)."""
+    """bundle the masterdata + episodes + account seed the C++ server reads via read_file() into the
+    app's gridlessdreams/ dir. config + constants are hardcoded in libdreams (no files shipped),
+    and the asset portion zips are dropped onto the device by the user per INSTALL.md (libdreams
+    mounts whatever it finds there) -- neither is the patcher's concern."""
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    for name in [
-        "masterdata.json",
-        "userData.json",
-        "abinfo_ios.json",
-        "abinfo_android.json",
-    ]:
-        src = DATA_DIR / name
-        if src.exists():
-            shutil.copy(src, dest_dir / name)
-            log(f"Bundled {name}")
+    for sub in ("_data/masterdata", "_data/episodes"):
+        src = DATA_SRC / sub
+        if src.is_dir():
+            dst = dest_dir / sub
+            shutil.rmtree(dst, ignore_errors=True)
+            shutil.copytree(src, dst)
+            log(f"Bundled {sub} ({sum(1 for _ in src.rglob('*') if _.is_file())} files)")
         else:
-            log(f"WARNING: {name} not found at {src}")
+            log(f"WARNING: {sub} not found at {src} (run download_masterdata / download_all_assets)")
 
-    log(f"NOTE: Assets must be copied separately to the device.")
-    log(
-        f"  Android: copy assets/ folder to /sdcard/Android/data/<pkg>/files/gridlessdreams/assets/"
-    )
-    log(f"  iOS: copy assets/ folder to <App>/Documents/gridlessdreams/assets/")
+    # account seed replayed on Account/Register (create_default_user_data); json::parse throws if
+    # it is missing, so a fresh account would 500 without it
+    seed = DATA_SRC / "db" / "default_account.json"
+    if seed.is_file():
+        dst = dest_dir / "db" / "default_account.json"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(seed, dst)
+        log("Bundled db/default_account.json")
+    else:
+        log(f"WARNING: db/default_account.json not found at {seed}")
 
 
 # ========== API ENDPOINT PATCH (Data/sharedassets0.assets) ==========
@@ -136,7 +144,7 @@ def bundle_data(dest_dir: Path):
 
 
 def _rewrite_unity_string(raw: bytes, old: bytes, new: bytes) -> bytes:
-    """Replace one Unity-serialized string field (length prefix + utf8 + align) in raw object bytes."""
+    """replace one Unity-serialized string field (length prefix + utf8 + align) in raw object bytes"""
     idx = raw.find(old)
     if idx < 0:
         raise ValueError(f"string {old!r} not found in object data")
@@ -192,17 +200,38 @@ def _patch_single_assets(assets_path: Path, old_b: bytes, new_b: bytes):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # release UnityPy's handle/mmap on the file so Windows lets it be re-split + unlinked
+    del obj, targets, env
+    import gc
+
+    gc.collect()
+
     blob = assets_path.read_bytes()
     if new_b not in blob or old_b in blob:
         raise RuntimeError("verification failed: API endpoint not rewritten cleanly")
     return True
 
 
+def _unlink_retry(path: Path, tries: int = 12):
+    """Windows can briefly hold a just-written/mmapped file (UnityPy, Defender). Retry unlink."""
+    import gc
+    import time
+
+    for i in range(tries):
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except PermissionError:
+            gc.collect()
+            time.sleep(0.4)
+    path.unlink(missing_ok=True)
+
+
 def patch_assets_endpoint(
     data_dir: Path, old_url: str = API_ENDPOINT_OLD, new_url: str = API_ENDPOINT_NEW
 ):
-    """Rewrite ApplicationConfig._apiEndPoint in sharedassets0.assets (single file, or Unity's
-    .split0../.splitN chunked layout which is reassembled, patched, then re-split in place)."""
+    """rewrite ApplicationConfig._apiEndPoint in sharedassets0.assets (single file, or Unity's
+    .split0../.splitN chunked layout which is reassembled, patched, then re-split in place)"""
     old_b, new_b = old_url.encode("utf-8"), new_url.encode("utf-8")
     if old_b == new_b:
         log("API endpoint already equals the target -- nothing to patch")
@@ -214,7 +243,7 @@ def patch_assets_endpoint(
             log(f"Patched API endpoint: {old_url} -> {new_url} ({single.name})")
         return
 
-    # Numeric (not lexical) order: ...split2 before ...split10; the host string lives in the LAST chunk.
+    # numeric (not lexical) order: ...split2 before ...split10; the host string lives in the LAST chunk
     splits = sorted(
         data_dir.glob("sharedassets0.assets.split*"),
         key=lambda p: int(p.name.rsplit(".split", 1)[1]),
@@ -231,7 +260,7 @@ def patch_assets_endpoint(
 
     patched = _patch_single_assets(joined, old_b, new_b)
     if not patched:
-        joined.unlink(missing_ok=True)
+        _unlink_retry(joined)
         return
 
     data = joined.read_bytes()
@@ -242,7 +271,7 @@ def patch_assets_endpoint(
     for stale in data_dir.glob("sharedassets0.assets.split*"):
         if int(stale.name.rsplit(".split", 1)[1]) >= n:
             stale.unlink()
-    joined.unlink(missing_ok=True)
+    _unlink_retry(joined)
     log(f"Patched API endpoint: {old_url} -> {new_url} (re-split into {n} chunks)")
 
 
@@ -325,7 +354,7 @@ def patch_ssl_bypass_ios(binary: bytearray) -> bool:
 
 
 # ========== IOS BINARY PATCHING (URL rewrite hooks) ==========
-# Finds SetUrl icall wrapper via ADRP+ADD scan for the icall name string
+# finds SetUrl icall wrapper via ADRP+ADD scan for the icall name string
 # (plain C string, NOT obfuscated by BeeByte).
 # Creates prologue branch -> trampoline in code cave -> data slot in __DATA.
 # The dylib reads hooks.json at runtime and writes the hook function address to the data slot.
@@ -567,6 +596,83 @@ class _MachOBinary:
             f"No {slot_size}-byte zero region in any writable DATA segment"
         )
 
+    def add_exec_arena(self, size: int) -> int:
+        """append an executable segment for trampolines (this binary has no usable caves).
+
+        The arena's file bytes are inserted just before __LINKEDIT (so __LINKEDIT stays last
+        in the file for code signing); every __LINKEDIT file offset is shifted, and a new
+        LC_SEGMENT_64 is written into the load-command slack. VM address is placed past all
+        segments but within a B branch (+/-128 MB) of the hooked methods. The existing code
+        signature is invalidated -- the IPA must be re-signed afterwards (already required)."""
+        LC_SEGMENT_64 = 0x19
+        ALIGN = 0x4000
+        LINKEDIT_LC_FIELDS = {  # cmd -> byte offsets (from cmd start) of u32 __LINKEDIT file offsets
+            0x2: [8, 16],                  # LC_SYMTAB: symoff, stroff
+            0xB: [32, 40, 48, 56, 64, 72],  # LC_DYSYMTAB
+            0x26: [8],                     # LC_FUNCTION_STARTS
+            0x29: [8],                     # LC_DATA_IN_CODE
+            0x1D: [8],                     # LC_CODE_SIGNATURE
+            0x1E: [8],                     # LC_SEGMENT_SPLIT_INFO
+            0x80000022: [8, 16, 24, 32, 40],  # LC_DYLD_INFO(_ONLY): rebase/bind/weak/lazy/export
+            0x80000034: [8],               # LC_DYLD_CHAINED_FIXUPS
+            0x80000033: [8],               # LC_DYLD_EXPORTS_TRIE
+        }
+        if struct.unpack_from(">I", self.data, 0)[0] == self._FAT_MAGIC:
+            raise RuntimeError("fat MachO arena not supported (expected a thin arm64 binary)")
+        data = self.data
+        ncmds, sizeofcmds = struct.unpack_from("<II", data, 16)
+        lc_end = 32 + sizeofcmds
+        new_lc_size = 0x48
+
+        linkedit_lc_off = None
+        linkedit_fileoff = None
+        field_patch_positions: list[int] = []
+        off = 32
+        for _ in range(ncmds):
+            cmd, cmdsize = struct.unpack_from("<II", data, off)
+            if cmd == LC_SEGMENT_64:
+                segname = data[off + 8 : off + 24].split(b"\x00")[0]
+                if segname == b"__LINKEDIT":
+                    linkedit_lc_off = off
+                    # segment_command_64: fileoff is at +40 (after cmd,cmdsize,segname,vmaddr,vmsize)
+                    linkedit_fileoff = struct.unpack_from("<Q", data, off + 40)[0]
+            if cmd in LINKEDIT_LC_FIELDS:
+                field_patch_positions += [off + fo for fo in LINKEDIT_LC_FIELDS[cmd]]
+            off += cmdsize
+        if linkedit_lc_off is None or linkedit_fileoff is None:
+            raise RuntimeError("no __LINKEDIT segment")
+        if lc_end + new_lc_size > min(
+            s.file_offset for s in self.segments if s.file_offset > 0
+        ):
+            raise RuntimeError("no header slack for a new LC_SEGMENT_64")
+
+        delta = (size + ALIGN - 1) & ~(ALIGN - 1)
+        arena_fileoff = linkedit_fileoff
+        max_vend = max(s.vaddr + s.vsize for s in self.segments)
+        arena_vmaddr = (max_vend + ALIGN - 1) & ~(ALIGN - 1)
+
+        # shift __LINKEDIT down by delta (insert the arena's bytes where it began)
+        data[arena_fileoff:arena_fileoff] = b"\x00" * delta
+        struct.pack_into("<Q", data, linkedit_lc_off + 40, linkedit_fileoff + delta)
+        for pos in field_patch_positions:
+            v = struct.unpack_from("<I", data, pos)[0]
+            if v >= arena_fileoff:
+                struct.pack_into("<I", data, pos, v + delta)
+
+        # new LC_SEGMENT_64 in the (zero) header slack
+        seg = struct.pack(
+            "<II16sQQQQiiII",
+            LC_SEGMENT_64, new_lc_size, b"__DREAMS",
+            arena_vmaddr, delta, arena_fileoff, delta,
+            5, 5, 0, 0,  # maxprot, initprot = R|X; nsects=0; flags=0
+        )
+        data[lc_end : lc_end + new_lc_size] = seg
+        struct.pack_into("<II", data, 16, ncmds + 1, sizeofcmds + new_lc_size)
+
+        self.segments = []
+        self._parse()
+        return arena_vmaddr
+
     def save(self, path: Path):
         path.write_bytes(self.data)
 
@@ -672,14 +778,195 @@ class _ELFBinary:
                         return off
         raise RuntimeError(f"No {slot_size}-byte zero region in any writable segment")
 
+    def add_exec_arena(self, size: int) -> int:
+        """append a zero-filled executable LOAD segment for trampolines and return its VA.
+
+        Packed il2cpp binaries have no code caves (largest zero run in .text is a few
+        bytes), so a trampoline needs its own space. We append it at EOF and repurpose the
+        PT_NOTE program header into PT_LOAD pointing at it (no existing content shifts, so
+        every method VA from the dump stays valid). The VA is placed past all existing
+        segments but close enough to the hooked methods for a B branch (+/-128 MB)."""
+        ALIGN = 0x4000
+        data = self.data
+        (e_phoff,) = struct.unpack_from("<Q", data, 32)
+        (e_phentsize,) = struct.unpack_from("<H", data, 54)
+        (e_phnum,) = struct.unpack_from("<H", data, 56)
+        note_off = None
+        for i in range(e_phnum):
+            off = e_phoff + i * e_phentsize
+            (p_type,) = struct.unpack_from("<I", data, off)
+            if p_type == 4:  # PT_NOTE
+                note_off = off
+                break
+            if p_type == 0x6474E551 and note_off is None:  # PT_GNU_STACK (fallback)
+                note_off = off
+        if note_off is None:
+            raise RuntimeError("no PT_NOTE/PT_GNU_STACK phdr to repurpose for a trampoline arena")
+
+        arena_file = (len(data) + ALIGN - 1) & ~(ALIGN - 1)
+        max_vend = max(s.vaddr + s.vsize for s in self.segments)
+        arena_va = (max_vend + ALIGN - 1) & ~(ALIGN - 1)
+        # p_offset and p_vaddr must be congruent mod p_align; both are ALIGN-aligned
+        data.extend(b"\x00" * (arena_file - len(data) + size))
+        struct.pack_into("<II", data, note_off, 1, 5)  # p_type=PT_LOAD, p_flags=R|X
+        struct.pack_into(
+            "<QQQQQQ", data, note_off + 8,
+            arena_file, arena_va, arena_va, size, size, ALIGN,
+        )
+        self.segments.append(_Segment("ARENA", arena_file, size, arena_va, size, 1))
+        return arena_va
+
     def save(self, path: Path):
         path.write_bytes(self.data)
+
+
+# APPENDED TRAMPOLINE + SLOT SEGMENTS
+
+# trampoline is 6 insns (see _build_trampoline); each hook owns one 8-byte slot
+_TRAMP_SIZE = 24
+_SLOT_SIZE = 8
+_MAX_HOOKS = 32  # generous upper bound (actual: SetUrl + the asset hooks)
+
+
+def _append_hook_segments(path: Path, n_hooks: int = _MAX_HOOKS) -> dict:
+    """append two fresh segments to the binary (rewritten in place): an R+X region for
+    the statically written trampolines and a SEPARATE R+W region for the runtime
+    hook-pointer slots. Returns {tramp_foff, tramp_va, tramp_size, slot_foff, slot_va,
+    slot_size}.
+
+    lief adds them as new program headers, so PT_NOTE and every method VA survive -- a
+    manually repurposed PT_NOTE loads on a real device but a native-bridge translator
+    (houdini) rejects the library. Trampolines (X) and slots (W) stay in different
+    segments: iOS W^X forbids a single W+X mapping, and a slot reusing a zero run in
+    existing __DATA/.bss would be clobbered by the game and read back as a bogus hook
+    pointer. Both go just past the last LOAD so a 26-bit B still reaches the methods."""
+    import lief
+
+    tr_size = (n_hooks * _TRAMP_SIZE + 0xFFF) & ~0xFFF
+    sl_size = (n_hooks * _SLOT_SIZE + 0xFFF) & ~0xFFF
+    with open(path, "rb") as f:
+        magic = f.read(4)
+
+    if magic == b"\x7fELF":
+        b = lief.ELF.parse(str(path))
+        loads = [s for s in b.segments if s.type == lief.ELF.Segment.TYPE.LOAD]
+        cursor = max(s.virtual_address + s.virtual_size for s in loads)
+
+        def _add(size: int, flags) -> tuple[int, int]:
+            nonlocal cursor
+            seg = lief.ELF.Segment()
+            seg.type = lief.ELF.Segment.TYPE.LOAD
+            seg.flags = flags
+            seg.alignment = 0x1000
+            seg.content = list(b"\x00" * size)
+            ns = b.add(seg)  # lief assigns the file offset
+            foff = ns.file_offset
+            # vaddr past the cursor, page-congruent with the file offset (ELF load rule)
+            va = (cursor + 0xFFF) & ~0xFFF
+            va = (va & ~0xFFF) | (foff & 0xFFF)
+            if va < cursor:
+                va += 0x1000
+            ns.virtual_address = va
+            ns.physical_address = va
+            cursor = va + size
+            return foff, va
+
+        F = lief.ELF.Segment.FLAGS
+        tr_foff, tr_va = _add(tr_size, F.R | F.X)
+        sl_foff, sl_va = _add(sl_size, F.R | F.W)
+        b.write(str(path))
+    else:
+        b = lief.MachO.parse(str(path)).at(0)
+        tr = lief.MachO.SegmentCommand("__DREAMSX", list(b"\x00" * tr_size))
+        tr.max_protection = tr.init_protection = 5  # VM_PROT_READ | EXECUTE
+        b.add(tr)
+        sl = lief.MachO.SegmentCommand("__DREAMSD", list(b"\x00" * sl_size))
+        sl.max_protection = sl.init_protection = 3  # VM_PROT_READ | WRITE
+        b.add(sl)
+        b.write(str(path))
+        # re-parse: lief finalises segment placement (and __LINKEDIT) only on write
+        rb = lief.MachO.parse(str(path)).at(0)
+        tseg = next(s for s in rb.segments if s.name == "__DREAMSX")
+        sseg = next(s for s in rb.segments if s.name == "__DREAMSD")
+        tr_foff, tr_va = tseg.file_offset, tseg.virtual_address
+        sl_foff, sl_va = sseg.file_offset, sseg.virtual_address
+
+    return {
+        "tramp_foff": tr_foff, "tramp_va": tr_va, "tramp_size": tr_size,
+        "slot_foff": sl_foff, "slot_va": sl_va, "slot_size": sl_size,
+    }
+
+
+def _seg_vranges(binary: _MachOBinary | _ELFBinary) -> list[tuple[int, int]]:
+    return [(s.vaddr, s.vsize) for s in binary.segments]
+
+
+def _make_va_remap(orig: list[tuple[int, int]], new: list[tuple[int, int]]):
+    """map a VA from the pre-append layout to the post-append one. Appending segments
+    makes lief grow the phdr table and slide every later segment by a (page-aligned)
+    delta, so VAs from an Il2CppDumper dump taken on the ORIGINAL binary are stale.
+    Original load segment i still corresponds to new segment i (the fresh trampoline/
+    slot segments are appended last), so a VA is rebased within its own segment."""
+    def remap(va: int) -> int:
+        for i, (ov, osz) in enumerate(orig):
+            if ov <= va < ov + osz and i < len(new):
+                return va - ov + new[i][0]
+        return va
+    return remap
 
 
 # ADRP+ADD SCAN FOR ICALL WRAPPERS
 
 _ICALL_NAME = b"UnityEngine.Networking.UnityWebRequest::SetUrl(System.String)\x00"
 _REACHABILITY_ICALL = b"UnityEngine.Application::get_internetReachability()\x00"
+
+# assets no-copy: il2cpp methods resolved by NAME from the Il2CppDumper script.json of the
+# exact binary being patched (--dump-dir), so the same code works for Android and iOS and any
+# version -- no hardcoded offsets. (il2cpp managed-string literals aren't C strings in the
+# binary, so these can't be found by the ADRP+ADD string scan used for icall wrappers.)
+# Keys are the hooks.json names libdreams dispatches on; values are script.json method names.
+_ASSET_HOOK_METHODS = {
+    # the resolver Fetch calls right before File.Exists; the stream-on-demand hook fetches the
+    # bundle from the local server into the Resources cache so the subsequent load finds it
+    "ToAssetPath": "Sirius.ResourceManagements.AddressablesUtility$$ToAssetPath",
+}
+_ASSET_HELPER_METHODS = {
+    # called directly by libdreams to locate the on-disk Resources root at runtime
+    "get_persistentDataPath": "UnityEngine.Application$$get_persistentDataPath",
+}
+
+# bulk-download skip: overwrite each method's prologue with an arm64 stub returning a completed/
+# empty result, so the game never pre-downloads the full mirror (assets stream on demand). No
+# trampoline/arena; same on both platforms. Return ABIs: DownloadAssetsAsync -> UniTask (x0:x1,
+# source==null = completed); ...AsBackground -> UniTaskVoid (x0); GetDownloadSizeAsync ->
+# UniTask<(long,List)> via x8 sret (zeroing the 32B struct => size 0).
+_MOVZ_X0_0 = 0xD2800000
+_MOVZ_X1_0 = 0xD2800001
+_RET = 0xD65F03C0
+_STP_XZR_X8_0 = 0xA9007D1F   # STP XZR, XZR, [X8]
+_STP_XZR_X8_16 = 0xA9017D1F  # STP XZR, XZR, [X8, #16]
+_ASSET_INLINE_METHODS = {
+    "Sirius.ResourceManagements.AddressablesRemoteAssetsDownloader$$DownloadAssetsAsync":
+        (_MOVZ_X0_0, _MOVZ_X1_0, _RET),
+    "Sirius.ResourceManagements.AddressablesRemoteAssetsDownloader$$DownloadAssetsAsBackgroundAsync":
+        (_MOVZ_X0_0, _RET),
+    "Sirius.ResourceManagements.AddressablesRemoteAssetsDownloader$$GetDownloadSizeAsync":
+        (_STP_XZR_X8_0, _STP_XZR_X8_16, _RET),
+}
+
+
+def _load_script_method_index(dump_dir: Path | None) -> dict[str, int] | None:
+    """map il2cpp method name -> VA from an Il2CppDumper script.json, or None if unavailable.
+    The dump must match the binary being patched (same platform + version)."""
+    if dump_dir is None:
+        return None
+    sj = dump_dir / "script.json"
+    if not sj.is_file():
+        log(f"script.json not found in {dump_dir}")
+        return None
+    with open(sj, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {m["Name"]: m["Address"] for m in data.get("ScriptMethod", [])}
 
 
 def _find_icall_via_adrp(
@@ -773,32 +1060,17 @@ def _patch_hook_trampoline(
     binary_path: Path,
     method_va: int,
     name: str,
-    exclude_caves: set[int] | None = None,
-    exclude_slots: set[int] | None = None,
+    cave_file: int,
+    slot_file: int,
 ) -> dict | None:
     method_file = binary.va_to_file(method_va)
     original_insn = bytes(binary.data[method_file : method_file + 4])
 
-    cave_file = binary.find_code_cave(method_va, 24, exclude=exclude_caves)
-    if cave_file < 0:
-        log(f"No code cave found near VA 0x{method_va:x} for {name}")
-        return None
-
-    # temporarily mark excluded slots so find_data_slot_region skips them
-    restore: list[tuple[int, bytes]] = []
-    if exclude_slots:
-        for s in exclude_slots:
-            orig = bytes(binary.data[s : s + 8])
-            binary.data[s : s + 8] = b"\xff" * 8
-            restore.append((s, orig))
-    data_slot_file = binary.find_data_slot_region(1)
-    for s, orig in restore:
-        binary.data[s : s + 8] = orig
     cave_va = binary.file_to_va(cave_file)
-    slot_va = binary.file_to_va(data_slot_file)
+    slot_va = binary.file_to_va(slot_file)
 
-    log(f"Code cave at file:0x{cave_file:x} VA:0x{cave_va:x}")
-    log(f"Data slot at file:0x{data_slot_file:x} VA:0x{slot_va:x}")
+    log(f"Trampoline at file:0x{cave_file:x} VA:0x{cave_va:x}")
+    log(f"Data slot at file:0x{slot_file:x} VA:0x{slot_va:x}")
 
     prologue = _build_prologue_branch(method_va, cave_va)
     trampoline = _build_trampoline(original_insn, method_va, cave_va, slot_va)
@@ -820,7 +1092,7 @@ def _patch_hook_trampoline(
 
 
 def _patch_reachability_inline(binary: _MachOBinary | _ELFBinary) -> bool:
-    """Directly overwrite get_internetReachability wrapper with MOV W0, #2; RET.
+    """directly overwrite get_internetReachability wrapper with MOV W0, #2; RET.
     No trampoline/runtime hook needed — this is a static binary patch."""
     log("Scanning for Reachability icall wrapper via ADRP+ADD...")
     func_va = _find_icall_via_adrp(binary, _REACHABILITY_ICALL, "Reachability")
@@ -835,48 +1107,134 @@ def _patch_reachability_inline(binary: _MachOBinary | _ELFBinary) -> bool:
 
 
 def _patch_all_hooks(
-    binary: _MachOBinary | _ELFBinary, binary_path: Path
+    binary: _MachOBinary | _ELFBinary,
+    binary_path: Path,
+    segs: dict,
+    dump_dir: Path | None = None,
+    va_remap=None,
 ) -> dict | None:
     hooks_info: list[dict] = []
-    used_caves: set[int] = set()
-    used_slots: set[int] = set()
+
+    # trampolines are bump-allocated from the appended R+X segment, slots from the
+    # appended R+W segment (see _append_hook_segments). Packed binaries have no code
+    # caves, so every trampoline lives in that segment.
+    tramp = [segs["tramp_foff"], segs["tramp_foff"] + segs["tramp_size"]]
+    slotr = [segs["slot_foff"], segs["slot_foff"] + segs["slot_size"]]
+    log(f"Trampolines @VA 0x{segs['tramp_va']:x}, slots @VA 0x{segs['slot_va']:x}")
+
+    def _carve_trampoline(method_va: int, name: str) -> dict | None:
+        if tramp[0] + _TRAMP_SIZE > tramp[1]:
+            log(f"Trampoline region exhausted -- skipping {name}")
+            return None
+        if slotr[0] + _SLOT_SIZE > slotr[1]:
+            log(f"Slot region exhausted -- skipping {name}")
+            return None
+        cave_file = tramp[0]
+        cave_va = binary.file_to_va(cave_file)
+        # method<->trampoline both use a 26-bit B (+/-128 MiB); skip if out of reach
+        if abs(cave_va - method_va) > 0x7F00000:
+            log(f"{name} VA 0x{method_va:x} out of B-range of trampolines -- skipping")
+            return None
+        slot_file = slotr[0]
+        tramp[0] += _TRAMP_SIZE
+        slotr[0] += _SLOT_SIZE
+        h = _patch_hook_trampoline(binary, binary_path, method_va, name, cave_file, slot_file)
+        if h:
+            hooks_info.append(h)
+        return h
 
     # SetUrl: trampoline (needs runtime rewrite logic)
     log("Scanning for SetUrl icall wrapper via ADRP+ADD...")
     func_va = _find_icall_via_adrp(binary, _ICALL_NAME, "SetUrl")
     if func_va is not None:
-        h = _patch_hook_trampoline(
-            binary, binary_path, func_va, "SetUrl", used_caves, used_slots
-        )
-        if h:
-            used_caves.add(binary.va_to_file(int(h["trampoline_rva"], 16)))
-            used_slots.add(binary.va_to_file(int(h["data_slot_rva"], 16)))
-            hooks_info.append(h)
+        _carve_trampoline(func_va, "SetUrl")
 
     # Reachability: inline patch (just return 2, no runtime hook)
     _patch_reachability_inline(binary)
 
-    if not hooks_info:
-        return None
+    # assets no-copy: stream-on-demand hooks, resolved by name from the dump's script.json
+    # (cross-platform + version-independent). Skipped (SetUrl/SSL still applied) when no dump.
+    helpers: dict[str, str] = {}
+    methods = _load_script_method_index(dump_dir)
+    if methods is not None and va_remap is not None:
+        # dump VAs are from the pre-append binary; rebase them onto the current layout
+        methods = {k: va_remap(v) for k, v in methods.items()}
+    if methods is None:
+        log("No --dump-dir script.json -- skipping assets no-copy hooks")
+    else:
+        for name, il2cpp_name in _ASSET_HOOK_METHODS.items():
+            va = methods.get(il2cpp_name)
+            if va is None:
+                log(f"WARNING: {il2cpp_name} not in script.json -- skipping {name} hook")
+                continue
+            try:
+                binary.va_to_file(va)  # dump/binary mismatch guard
+            except ValueError:
+                log(f"WARNING: {name} VA 0x{va:x} not in any segment (dump mismatch?) -- skipping")
+                continue
+            _carve_trampoline(va, name)
+        if any(h["name"] in _ASSET_HOOK_METHODS for h in hooks_info):
+            for name, il2cpp_name in _ASSET_HELPER_METHODS.items():
+                va = methods.get(il2cpp_name)
+                if va is None:
+                    log(f"WARNING: helper {il2cpp_name} not in script.json")
+                    continue
+                helpers[name] = f"0x{va:x}"
+
+        # bulk-download skip (inline prologue stubs; both platforms, no trampoline needed)
+        for il2cpp_name, insns in _ASSET_INLINE_METHODS.items():
+            va = methods.get(il2cpp_name)
+            if va is None:
+                log(f"WARNING: {il2cpp_name} not in script.json -- skipping inline stub")
+                continue
+            try:
+                foff = binary.va_to_file(va)
+            except ValueError:
+                log(f"WARNING: {il2cpp_name} VA 0x{va:x} not in segment -- skipping inline stub")
+                continue
+            binary.data[foff : foff + 4 * len(insns)] = struct.pack(
+                "<" + "I" * len(insns), *insns
+            )
+            log(f"Inline-neutered {il2cpp_name.split('$$')[-1]} at VA 0x{va:x}")
 
     binary.save(binary_path)
-    return {"hooks": hooks_info}
+    result: dict = {"hooks": hooks_info}
+    if helpers:
+        result["helpers"] = helpers
+    return result
 
 
-def patch_ios_binary_hooks(binary_path: Path) -> dict | None:
+def patch_ios_binary_hooks(
+    binary_path: Path, dump_dir: Path | None = None
+) -> dict | None:
+    # append the trampoline/slot segments first; lief rewrites the file + slides VAs,
+    # so capture the layout before and after to rebase the dump VAs
+    orig = _seg_vranges(_MachOBinary(binary_path))
+    segs = _append_hook_segments(binary_path)
     binary = _MachOBinary(binary_path)
-    return _patch_all_hooks(binary, binary_path)
+    remap = _make_va_remap(orig, _seg_vranges(binary))
+    return _patch_all_hooks(binary, binary_path, segs, dump_dir, remap)
 
 
-def patch_android_binary_hooks(binary_path: Path) -> dict | None:
+def patch_android_binary_hooks(
+    binary_path: Path, dump_dir: Path | None = None
+) -> dict | None:
+    orig = _seg_vranges(_ELFBinary(binary_path))
+    segs = _append_hook_segments(binary_path)
     binary = _ELFBinary(binary_path)
-    return _patch_all_hooks(binary, binary_path)
+    remap = _make_va_remap(orig, _seg_vranges(binary))
+    return _patch_all_hooks(binary, binary_path, segs, dump_dir, remap)
 
 
 # ========== ANDROID ==========
 
 
-def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
+def patch_android(
+    input_path: Path,
+    output_path: Path,
+    inject_so: Path | None,
+    dump_dir: Path | None = None,
+):
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     apk_dir = TEMP_DIR / "apk"
     shutil.rmtree(apk_dir, ignore_errors=True)
@@ -912,28 +1270,52 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
         raise FileNotFoundError(f"libil2cpp.so not found at {il2cpp_path}")
 
     # RENAME PACKAGE + APP
+    # dex is kept verbatim (apktool d --no-src) so app classes keep their original
+    # package. a blunt orig->new replace would rewrite component class names too
+    # (e.g. UnityPlayerActivityOverride) and the launcher would point at a class
+    # the dex doesn't have -> ClassNotFoundException at startup. so component class
+    # names stay on the original package, while everything the applicationId derives
+    # -- the <manifest package> attr, authorities, and custom permission names --
+    # moves to the new id (the permissions must move or install collides with the
+    # DUPLICATE_PERMISSION of a still-installed original app).
     log("Renaming package and app...")
     manifest_path = sources / "AndroidManifest.xml"
     manifest = manifest_path.read_text(encoding="utf-8")
-    # find original package name
     import re
 
-    orig_pkg = re.search(r'package="([^"]+)"', manifest)
+    m = re.search(r'<manifest\b[\s\S]*?\bpackage="([^"]+)"', manifest)
+    orig_pkg = m.group(1) if m else None
     if orig_pkg:
-        orig_pkg = orig_pkg.group(1)
-        manifest = manifest.replace(orig_pkg, PACKAGE_NAME)
+        # qualify relative component names to orig (only class refs start with '.')
+        manifest = re.sub(r'(android:name=")\.', rf"\g<1>{orig_pkg}.", manifest)
+        manifest = re.sub(r'(android:targetActivity=")\.', rf"\g<1>{orig_pkg}.", manifest)
+        manifest = re.sub(
+            r'(<manifest\b[\s\S]*?\bpackage=")[^"]*(")',
+            rf"\g<1>{PACKAGE_NAME}\g<2>",
+            manifest,
+            count=1,
+        )
+        manifest = re.sub(
+            r'(android:authorities=")([^"]*)(")',
+            lambda mm: mm.group(1) + mm.group(2).replace(orig_pkg, PACKAGE_NAME) + mm.group(3),
+            manifest,
+        )
+        # custom permission names (declared + used); these never collide with a
+        # component class name so a plain substring swap is safe
+        manifest = manifest.replace(f"{orig_pkg}.permission.", f"{PACKAGE_NAME}.permission.")
+        manifest = manifest.replace(
+            f"{orig_pkg}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+            f"{PACKAGE_NAME}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
+        )
         manifest_path.write_text(manifest, encoding="utf-8")
         log(f"Package: {orig_pkg} -> {PACKAGE_NAME}")
 
-    # update apktool.yml
+    # manifest already carries the new id; disable apktool's own rename so a second
+    # aapt-level pass can't re-qualify names against the wrong package
     apktool_yml = sources / "apktool.yml"
     if apktool_yml.exists():
         yml = apktool_yml.read_text(encoding="utf-8")
-        yml = re.sub(
-            r"renameManifestPackage:.*", f"renameManifestPackage: {PACKAGE_NAME}", yml
-        )
-        if "renameManifestPackage" not in yml:
-            yml += f"\nrenameManifestPackage: {PACKAGE_NAME}\n"
+        yml = re.sub(r"renameManifestPackage:.*", "renameManifestPackage: null", yml)
         apktool_yml.write_text(yml, encoding="utf-8")
 
     # update app name in strings.xml
@@ -947,7 +1329,7 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
         )
         strings_path.write_text(strings, encoding="utf-8")
 
-    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets).
+    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets)
     log("Patching API endpoint...")
     patch_assets_endpoint(data_dir)
 
@@ -967,7 +1349,7 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
 
     # URL REWRITE HOOKS (static binary patches on libil2cpp.so)
     log("Applying URL rewrite hooks to libil2cpp.so...")
-    hooks_data = patch_android_binary_hooks(il2cpp_path)
+    hooks_data = patch_android_binary_hooks(il2cpp_path, dump_dir)
     if hooks_data:
         hooks_dir = sources / "assets" / "gridlessdreams"
         hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -1043,7 +1425,12 @@ def patch_android(input_path: Path, output_path: Path, inject_so: Path | None):
 # ========== IOS ==========
 
 
-def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
+def patch_ios(
+    input_path: Path,
+    output_path: Path,
+    inject_dylib: Path | None,
+    dump_dir: Path | None = None,
+):
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
     ipa_dir = TEMP_DIR / "ipa"
     shutil.rmtree(ipa_dir, ignore_errors=True)
@@ -1090,7 +1477,7 @@ def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
         plistlib.dump(plist, f)
     log(f"Patched Info.plist (package={PACKAGE_NAME}, name={APP_NAME})")
 
-    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets).
+    # REDIRECT THE FIRST-HOP API HOST (ApplicationConfig._apiEndPoint in Data/sharedassets0.assets)
     log("Patching API endpoint...")
     patch_assets_endpoint(data_dir)
 
@@ -1117,7 +1504,7 @@ def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
     # URL REWRITE HOOKS (static binary patches)
     # Must happen AFTER lief injection (lief may change binary layout)
     log("Applying URL rewrite hooks to binary...")
-    hooks_data = patch_ios_binary_hooks(binary_path)
+    hooks_data = patch_ios_binary_hooks(binary_path, dump_dir)
     if hooks_data:
         hooks_dir = app_path / "gridlessdreams"
         hooks_dir.mkdir(parents=True, exist_ok=True)
@@ -1149,13 +1536,28 @@ def patch_ios(input_path: Path, output_path: Path, inject_dylib: Path | None):
 
 
 def main():
+    global DATA_SRC
     parser = argparse.ArgumentParser(description="Patch a Unity game for GridlessDreams")
     parser.add_argument("input", help="Input APK/XAPK/IPA file")
     parser.add_argument("-o", "--output", required=True, help="Output file path")
     parser.add_argument(
         "--inject", help="Path to .so or .dylib to inject", default=None
     )
+    parser.add_argument(
+        "--dump-dir",
+        default=None,
+        help="Il2CppDumper output dir (script.json) matching the binary -- enables the "
+        "assets no-copy stream-on-demand hooks. Use the platform-matching dump.",
+    )
+    parser.add_argument(
+        "--data-src", default=None,
+        help="dir holding _data/{masterdata,episodes} to bundle "
+        f"(default: {DATA_SRC})",
+    )
     args = parser.parse_args()
+
+    if args.data_src:
+        DATA_SRC = Path(args.data_src)
 
     input_path = Path(args.input)
     output_path = Path(args.output)
@@ -1165,12 +1567,13 @@ def main():
         sys.exit(1)
 
     inject = Path(args.inject) if args.inject else None
+    dump_dir = Path(args.dump_dir) if args.dump_dir else None
     ext = input_path.suffix.lower()
 
     if ext in (".apk", ".xapk"):
-        patch_android(input_path, output_path, inject)
+        patch_android(input_path, output_path, inject, dump_dir)
     elif ext == ".ipa":
-        patch_ios(input_path, output_path, inject)
+        patch_ios(input_path, output_path, inject, dump_dir)
     else:
         print(f"Unsupported file type: {ext}")
         sys.exit(1)

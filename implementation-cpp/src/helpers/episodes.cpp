@@ -36,7 +36,7 @@ std::optional<std::string> get_str(const json& o, const char* k) {
     return it->get<std::string>();
 }
 
-// bin_hashes.json: episode id (string) -> "<id>_<hash>" scene-blob name. Loaded once.
+// bin_hashes.json: episode id (string) -> "<id>_<hash>" scene-blob name. loaded once.
 const json& bin_hashes() {
     static const json data = [] {
         std::string path = _DIR + "/bin_hashes.json";
@@ -50,7 +50,7 @@ const json& bin_hashes() {
 }
 
 // scene bins are served under /master-data/production/scenes/ (see routes/episodes.py),
-// so build the client-facing URL off the same master-data base.
+// so build the client-facing URL off the same master-data base
 [[maybe_unused]] std::string _asset_base() {
     std::string s = config::get_str("master_data_url");
     size_t end = s.find_last_not_of('/');
@@ -88,8 +88,8 @@ void _build_meta() {
 
 std::unordered_map<long long, std::optional<Meta>> _LOCAL_META_CACHE;
 
-// The 歌劇目録 (opera catalogue) items -- their item category. It's the extra reward for reading
-// ALL of an episode's text, but only for MAIN-story episodes (EpisodeMaster). Event packages
+// the 歌劇目録 (opera catalogue) items -- their item category. it's the extra reward for reading
+// ALL of an episode's text, but only for MAIN-story episodes (EpisodeMaster). event packages
 // also carry the item as a normal read reward, but their full-read grants no extra copy.
 constexpr long long _CATALOGUE_ITEM_CATEGORY = 13;
 

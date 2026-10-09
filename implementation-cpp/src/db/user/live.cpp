@@ -15,7 +15,7 @@ SelectQuery next_live_id() {
         std::string("live_id_seq"));
 }
 
-ExecutableQuery update_player_rate(std::int64_t user_id, double rate) {
+ExecutableQuery update_player_rate(long long user_id, double rate) {
     return ExecutableQuery(
         "UPDATE \"user_profile\" SET \"playerRate\" = $2 WHERE \"userId\" = $1",
         user_id,
@@ -23,10 +23,10 @@ ExecutableQuery update_player_rate(std::int64_t user_id, double rate) {
 }
 
 ExecutableQuery update_music_releases(
-    std::int64_t user_id,
-    const std::vector<std::tuple<std::int64_t, bool, std::int64_t>>& changes) {
+    long long user_id,
+    const std::vector<std::tuple<long long, bool, long long>>& changes) {
     // batch stella/olivier release updates for many music rows into one statement
-    // (changes = [(music_id, stella_released, olivier_status), ...]; must be non-empty).
+    // (changes = [(music_id, stella_released, olivier_status), ...]; must be non-empty)
     std::vector<std::string> rows;
     std::vector<json> args;
     args.emplace_back(user_id);
@@ -43,7 +43,7 @@ ExecutableQuery update_music_releases(
         if (i) values += ", ";
         values += rows[i];
     }
-    // sqlite has no UPDATE ... FROM (VALUES ...) AS v(cols); use a column-list CTE instead.
+    // sqlite has no UPDATE ... FROM (VALUES ...) AS v(cols); use a column-list CTE instead
     ExecutableQuery q;
     q.sql = "WITH v(id, stella, status) AS (VALUES " + values + ") "
             "UPDATE \"music\" AS m SET \"stellaReleased\" = v.stella, "
@@ -54,16 +54,16 @@ ExecutableQuery update_music_releases(
     return q;
 }
 
-ExecutableQuery delete_active_lives(std::int64_t user_id) {
+ExecutableQuery delete_active_lives(long long user_id) {
     return ExecutableQuery("DELETE FROM \"active_live\" WHERE \"userId\" = $1", user_id);
 }
 
 ExecutableQuery create_active_live(
-    std::int64_t user_id,
-    std::int64_t live_id,
-    std::int64_t live_master_id,
-    std::int64_t party_id,
-    std::int64_t live_setting_master_id,
+    long long user_id,
+    long long live_id,
+    long long live_master_id,
+    long long party_id,
+    long long live_setting_master_id,
     bool stamina_spent) {
     return ExecutableQuery(
         "INSERT INTO \"active_live\" "
@@ -77,19 +77,19 @@ ExecutableQuery create_active_live(
         stamina_spent);
 }
 
-SelectQuery get_active_live(std::int64_t user_id) {
+SelectQuery get_active_live(long long user_id) {
     return SelectQuery(
         "ActiveLiveModel", "SELECT * FROM \"active_live\" WHERE \"userId\" = $1", user_id);
 }
 
 ExecutableQuery update_live_result(
-    std::int64_t user_id,
-    std::int64_t live_master_id,
-    std::int64_t times_completed,
+    long long user_id,
+    long long live_master_id,
+    long long times_completed,
     double achievement_rate,
     double notation_rate,
-    std::int64_t clear_lamp,
-    std::int64_t rate_grade) {
+    long long clear_lamp,
+    long long rate_grade) {
     // best-of merge is decided by the caller; this just writes the row for (userId, liveMasterId)
     return ExecutableQuery(
         "UPDATE \"live\" SET \"timesCompleted\" = $3, \"achievementRate\" = $4, "

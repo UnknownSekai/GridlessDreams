@@ -14,7 +14,7 @@
 #include "helpers/user_data.h"
 #include "wire.h"
 
-// ports routes/player.py.
+// ports routes/player.py
 
 namespace routes {
 namespace {
@@ -27,13 +27,13 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// respond(result, present=...) -> common envelope.
+// respond(result, present=...) -> common envelope
 void respond(httplib::Response& res, const char* result_name, const json& result,
              const json& present = json::array()) {
     send(res, wire::common_response(result_name, result, json::array(), present));
 }
 
-// python truthiness for the int|bool|None values carried in game_state value dicts.
+// python truthiness for the int|bool|None values carried in game_state value dicts
 bool truthy(const rjson& v) {
     if (v.is_null()) return false;
     if (v.is_boolean()) return v.get<bool>();
@@ -41,7 +41,7 @@ bool truthy(const rjson& v) {
     return !v.empty();
 }
 
-// now as epoch micros, like the other User timestamps.
+// now as epoch micros, like the other User timestamps
 long long now_micros() {
     return static_cast<long long>(std::chrono::duration_cast<std::chrono::microseconds>(
                                       std::chrono::system_clock::now().time_since_epoch())
@@ -145,7 +145,7 @@ void register_player(httplib::Server& svr) {
                      json payload = wire::read_request(req.body, "UpdateHomeDisplayPreferencePayload");
                      if (payload.is_null()) throw game_state::Rejected();
                      // {_camel(k): v for k, v in payload.model_dump().items()} with the pydantic
-                     // defaults for fields the client omitted (wire read_request drops those).
+                     // defaults for fields the client omitted (wire read_request drops those)
                      auto opt_int = [&](const char* key) -> rjson {
                          auto it = payload.find(key);
                          if (it == payload.end() || it->is_null()) return rjson(nullptr);

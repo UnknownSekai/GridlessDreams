@@ -3,8 +3,8 @@
 #include <utility>
 #include <vector>
 
-// Per-chart live rating (level + piecewise-linear achievement-rate adjustment) plus the
-// Olivier star-badge (SpRate) table. Ports helpers/live_rate.py. Charts with no live rate
+// per-chart live rating (level + piecewise-linear achievement-rate adjustment) plus the
+// Olivier star-badge (SpRate) table. ports helpers/live_rate.py. charts with no live rate
 // (Olivier / long-version song / unknown) rate to none; the player's total rate is the sum
 // of the best live rate of their top 30 charts. EXACT NUMERIC PARITY: live_rate truncates to
 // 2dp via floor (not round); adjustment is linearly interpolated between the 9 breakpoints.

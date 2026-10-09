@@ -27,8 +27,8 @@
 #include "../helpers/progression.h"
 #include "../helpers/score.h"
 
-// Ports routes/live_modes.py: master-driven Anthology/audition progression + lesson &
-// music-course lives. These wrap the routes/lives.py Start/Finish/Retire handlers (run
+// ports routes/live_modes.py: master-driven Anthology/audition progression + lesson &
+// music-course lives. these wrap the routes/lives.py Start/Finish/Retire handlers (run
 // inside this request's transaction, via the shared global db) and layer progression on
 // top, so the base live logic stays untouched. install_live_modes() prepends them.
 
@@ -41,7 +41,7 @@ using db::user::create_active_live;
 using db::user::delete_active_lives;
 
 // ---- private-member access: prepend handlers to httplib's post_handlers_ ----
-// post_handlers_ is private; an explicit template instantiation ignores access control.
+// post_handlers_ is private; an explicit template instantiation ignores access control
 using HandlersVec =
     std::vector<std::pair<std::unique_ptr<httplib::detail::MatcherBase>, httplib::Server::Handler>>;
 
@@ -71,7 +71,7 @@ template struct AccessRob<PostHandlersTag, &httplib::Server::post_handlers_>;
 json to_oj(const nlohmann::json& v) { return json::parse(v.dump()); }
 nlohmann::json to_nj(const json& v) { return nlohmann::json::parse(v.dump()); }
 
-int64_t now_micros() {
+long long now_micros() {
     return std::chrono::duration_cast<std::chrono::microseconds>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
@@ -98,7 +98,7 @@ std::vector<msgpack::object_handle> parts(const std::string& body) {
     return out;
 }
 
-// decode a faults pack (array of Fault model arrays) back to field-named jsons.
+// decode a faults pack (array of Fault model arrays) back to field-named jsons
 json decode_faults(const msgpack::object& packed) {
     json out = json::array();
     if (packed.type != msgpack::type::ARRAY) return out;
@@ -108,7 +108,7 @@ json decode_faults(const msgpack::object& packed) {
 }
 
 // decode a present pack ([key, valueArray] entries) into [key, name, value] union
-// entries so pipeline::respond re-encodes them byte-identically via to_wire.
+// entries so pipeline::respond re-encodes them byte-identically via to_wire
 json decode_present(const msgpack::object& packed) {
     json out = json::array();
     if (packed.type != msgpack::type::ARRAY) return out;
@@ -137,7 +137,7 @@ long long present_id0(const std::string& name, const json& value) {
     return it != value.end() && it->is_number() ? it->get<long long>() : 0;
 }
 
-// (int(thing_type), thing_id, thing_quantity) triples from a reward-rows list.
+// (int(thing_type), thing_id, thing_quantity) triples from a reward-rows list
 json rewards(const json& rows) {
     json out = json::array();
     if (rows.is_array())
@@ -193,7 +193,7 @@ long long rand_live_id() {
 
 // run an upstream base handler inside this request's active transaction (the global db
 // is already in the transaction, so no app-swap BoundApp is needed) and return its
-// decoded 5-pack body.
+// decoded 5-pack body
 std::vector<msgpack::object_handle> call_bound(const httplib::Request& req,
                                                void (*fn)(const httplib::Request&,
                                                           httplib::Response&)) {
@@ -656,7 +656,7 @@ void start_course(const httplib::Request& req, httplib::Response& res) {
                         s.one("Item", nlohmann::json{{"itemMasterId", req_item}});
                     long long amount = course.at("required_amount").get<long long>();
                     if (item != nullptr && item->at("stock").get<long long>() >= amount && amount > 0) {
-                        s.pay(std::map<int64_t, int64_t>{{req_item.get<int64_t>(), amount}});
+                        s.pay(std::map<long long, long long>{{req_item.get<long long>(), amount}});
                         paid = "ticket";
                     } else if (policy.at("waive_missing_course_tickets").get<bool>()) {
                         paid = "waived";
@@ -707,7 +707,7 @@ void start_course(const httplib::Request& req, httplib::Response& res) {
 void install_live_modes(httplib::Server& svr) {
     // register the override handlers, then rotate the just-added entries to the front of
     // post_handlers_ so they take precedence over the lives/lessons base handlers
-    // (mirrors live_modes.install() prepending its router).
+    // (mirrors live_modes.install() prepending its router)
     HandlersVec& handlers = svr.*AccessResult<PostHandlersTag>::ptr;
     size_t before = handlers.size();
 

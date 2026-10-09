@@ -19,11 +19,11 @@ namespace {
 
 void log_error(const std::string& msg) {
 #if defined(__ANDROID__)
-    __android_log_print(ANDROID_LOG_ERROR, "GridlessDreams", "%s", msg.c_str());
+    __android_log_print(ANDROID_LOG_ERROR, "[UTSK GD]", "%s", msg.c_str());
 #elif defined(__APPLE__)
-    os_log_error(OS_LOG_DEFAULT, "[GridlessDreams] %{public}s", msg.c_str());
+    os_log_error(OS_LOG_DEFAULT, "[UTSK GD] %{public}s", msg.c_str());
 #else
-    std::fprintf(stderr, "[GridlessDreams] %s\n", msg.c_str());
+    std::fprintf(stderr, "[UTSK GD] %s\n", msg.c_str());
 #endif
 }
 
@@ -32,7 +32,7 @@ void log_error(const std::string& msg) {
     throw std::runtime_error(msg);
 }
 
-// Scalar coercions mirroring Python int()/str()/bool()/float() on config values.
+// scalar coercions mirroring Python int()/str()/bool()/float() on config values
 long long as_int(const nlohmann::json& v, long long def) {
     if (v.is_number_integer() || v.is_number_unsigned()) return v.get<long long>();
     if (v.is_number_float()) return static_cast<long long>(v.get<double>());
@@ -120,25 +120,31 @@ void ensure_loaded() {
     std::lock_guard<std::mutex> lk(g_mu);
     if (g_loaded) return;
 
-    nlohmann::json parsed = load_yaml("config.yml");
-
-    std::vector<std::string> missing;
-    for (const char* k : REQUIRED)
-        if (!parsed.contains(k)) missing.emplace_back(k);
-    if (!missing.empty()) {
-        std::sort(missing.begin(), missing.end());
-        std::string list = "[";
-        for (size_t i = 0; i < missing.size(); ++i) {
-            if (i) list += ", ";
-            list += "'" + missing[i] + "'";
-        }
-        list += "]";
-        fatal("config.yml is missing required keys: " + list);
-    }
-
-    g_config = std::move(parsed);
-    parse_database();
-    parse_realtime();
+    // offline build: every value is hardcoded, so there is no config.yml to ship or break.
+    // the DB is a local SQLite file (db.cpp), so the Python psql `database` section is omitted
+    // -- it was never read here. all client-facing URLs point at the in-process server, and
+    // grant_music_tickets is on so songs unlock freely.
+    g_config = {
+        {"host", "127.0.0.1"},
+        {"port", 39046},
+        {"server_version", "2.31.3"},
+        {"asset_version", "1.96.0"},
+        {"master_data_publish_timestamp", 1784297595},
+        {"feature_maintenance_flags", "0"},
+        {"maintenance", false},
+        {"maintenance_message", ""},
+        {"stamina_recovery_seconds", 80},
+        {"local_assets", true},
+        {"grant_music_tickets", true},
+        {"api_endpoint", "http://127.0.0.1:39046"},
+        {"master_data_url", "http://127.0.0.1:39046/master-data/production"},
+        {"static_content_url", "http://127.0.0.1:39046/production/static-assets"},
+        {"asset_url", "http://127.0.0.1:39046/production"},
+        {"photo_content_url", "http://127.0.0.1:39046"},
+        {"multi_real_time_server_url", "http://127.0.0.1:39046"},
+        {"external_payment_url", "http://127.0.0.1:39046/game/web-shop"},
+        {"jwt_secret", "gridlessdreams-offline-local"},
+    };
     g_loaded = true;
 }
 
@@ -194,7 +200,14 @@ nlohmann::json g_constants;
 void ensure_loaded() {
     std::lock_guard<std::mutex> lk(g_mu);
     if (g_loaded) return;
-    g_constants = load_yaml("constants.yml");
+    g_constants = {
+        {"rank_xp_per_stamina", 4.5},
+        {"lesson_star_points", 250},
+        {"lesson_rank_xp", 1500},
+        {"course_free_attempts", 2},
+        {"waive_missing_course_tickets", true},
+        {"unlimited_attempts", false},
+    };
     g_loaded = true;
 }
 

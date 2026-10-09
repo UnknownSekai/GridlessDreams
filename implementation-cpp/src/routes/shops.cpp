@@ -24,7 +24,7 @@
 #include "pipeline.h"
 #include "wire.h"
 
-// ports routes/shops.py.
+// ports routes/shops.py
 
 namespace routes {
 namespace {
@@ -65,8 +65,8 @@ long long _random_id() {
 
 long long _now() { return static_cast<long long>(std::time(nullptr)) * 1000000LL; }
 
-// A purchase that cannot go through, raised rather than returned so it unwinds the enclosing
-// db::transaction(). A purchase writes in stages (count the limit, charge, then grant) and a
+// a purchase that cannot go through, raised rather than returned so it unwinds the enclosing
+// db::transaction(). a purchase writes in stages (count the limit, charge, then grant) and a
 // plain return out of the transaction scope commits the partial write; throwing rolls it back.
 struct _Rejected {
     std::string code;
@@ -85,8 +85,8 @@ json present_from(std::optional<long long> user_id, const std::set<std::string>&
     return user_data::build_present(user_id, specs);
 }
 
-// Run one exchange-shop purchase: count it against the cap, charge, grant. Returns
-// (received_things, refreshed_entity_names), or throws _Rejected. Ordered so nothing is granted
+// run one exchange-shop purchase: count it against the cap, charge, grant. returns
+// (received_things, refreshed_entity_names), or throws _Rejected. ordered so nothing is granted
 // unless payment succeeded and nothing is charged unless the exchange limit had room.
 std::pair<std::vector<json>, std::set<std::string>> _exchange(long long user_id, const json& thing,
                                                               long long quantity, long long now) {
@@ -119,8 +119,8 @@ std::pair<std::vector<json>, std::set<std::string>> _exchange(long long user_id,
     return {received, refresh};
 }
 
-// The caller's current market, rolling a new one if the period turned over. Returns
-// (MarketThing rows, refresh_times). The lineup is stored rather than regenerated per call, so a
+// the caller's current market, rolling a new one if the period turned over. returns
+// (MarketThing rows, refresh_times). the lineup is stored rather than regenerated per call, so a
 // reconnect shows the same 15 frames -- and so has_purchased survives.
 std::pair<std::vector<rjson>, long long> _market_state(long long user_id, long long now) {
     std::optional<rjson> rolled =
@@ -157,7 +157,7 @@ json _market_result(const std::vector<rjson>& rows, long long refresh_times) {
     return result;
 }
 
-// Buy one rolled market frame. (received, refreshed), or throws _Rejected.
+// buy one rolled market frame. (received, refreshed), or throws _Rejected.
 std::pair<std::vector<json>, std::set<std::string>> _buy_market_frame(long long user_id,
                                                                       long long frame_number) {
     std::optional<rjson> claimed =
@@ -328,7 +328,7 @@ void register_shops(httplib::Server& svr) {
              [](const httplib::Request& req, httplib::Response& res) {
                  long long m_live_id = std::stoll(req.path_params.at("mLiveId"));
                  std::optional<long long> user_id = user_data::current_user_id(req);
-                 // buys the Olivier chart of the song this live belongs to. Only a chart the user has
+                 // buys the Olivier chart of the song this live belongs to. only a chart the user has
                  // already made Purchasable can be bought; the guard lives in release_music_olivier.
                  std::optional<long long> music_master_id = shops::live_music_master_id(m_live_id);
                  if (!user_id.has_value() || !music_master_id.has_value()) {
@@ -497,7 +497,7 @@ void register_shops(httplib::Server& svr) {
                  }
 
                  // TODO: the singular payload here is what read_request already decoded, so this is
-                 // treated as a one-entry batch. If the real endpoint takes a list the model needs
+                 // treated as a one-entry batch. if the real endpoint takes a list the model needs
                  // changing to match -- capture pending.
                  std::pair<json, json> pair =
                      shops::exchange_shop_thing(get_ll(payload, "m_exchange_shop_thing_id", 0));
@@ -580,7 +580,7 @@ void register_shops(httplib::Server& svr) {
             return;
         }
 
-        // NOTE: this grants the pack outright. These are real-money IAPs and the actual store
+        // NOTE: this grants the pack outright. these are real-money IAPs and the actual store
         // receipt is validated by the KmsGeneralPayment routes, not here -- on a private server
         // there is no receipt to check, so the purchase is simply honoured.
         std::vector<json> received;
@@ -638,7 +638,7 @@ void register_shops(httplib::Server& svr) {
                  try {
                      auto tx = db::transaction();
                      // claim the refresh slot first: it both enforces the per-period ceiling and
-                     // tells us which step of the price curve this refresh is. Charging first would
+                     // tells us which step of the price curve this refresh is. charging first would
                      // mean pricing off a count a concurrent refresh could move.
                      std::optional<rjson> claimed = db::user::consume_market_refresh(
                          *user_id, now, _random_id(), shops::market_reset(now),
@@ -668,8 +668,8 @@ void register_shops(httplib::Server& svr) {
 
     // /api/Shops/ViewPage
     svr.Post("/api/Shops/ViewPage", [](const httplib::Request&, httplib::Response& res) {
-        // TODO: unimplemented. Returns ConvertedThingResult[], but nothing in master data says what
-        // triggers a conversion -- an empty list is the safe stand-in. Blocked on a capture.
+        // TODO: unimplemented. returns ConvertedThingResult[], but nothing in master data says what
+        // triggers a conversion -- an empty list is the safe stand-in. blocked on a capture.
         pipeline::respond(res, "ViewShopResult", json::object());
     });
 }

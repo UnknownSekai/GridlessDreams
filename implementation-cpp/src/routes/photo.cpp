@@ -54,7 +54,7 @@ ojson as_ojson(const rjson& v) { return v; }
 rjson as_rjson(const ojson& v) { return v; }
 
 // GeneratePhotoResult() with its python model defaults: rarity defaults to PhotoRarities.Rare1
-// (=1), not default(enum)=0, so an empty wire object would mis-encode slot 3 as 0.
+// (=1), not default(enum)=0, so an empty wire object would mis-encode slot 3 as 0
 ojson default_generate_photo_result() {
     ojson r;
     r["rarity"] = enums::PhotoRarities::Rare1;
@@ -65,7 +65,7 @@ ojson default_generate_photo_result() {
 bool truthy(const ojson& v) {
     if (v.is_null()) return false;
     if (v.is_boolean()) return v.get<bool>();
-    if (v.is_number_integer()) return v.get<int64_t>() != 0;
+    if (v.is_number_integer()) return v.get<long long>() != 0;
     if (v.is_number_unsigned()) return v.get<uint64_t>() != 0;
     if (v.is_number_float()) return v.get<double>() != 0.0;
     if (v.is_string()) return !v.get_ref<const std::string&>().empty();
@@ -164,7 +164,7 @@ bool valid_uuid(std::string s) {
 
 // upsert a MusicVideo/TheaterStory watch row; valid is the master-existence check
 void watch(httplib::Response& res, const httplib::Request& req, const std::string& entity,
-           const std::string& field, int64_t ident, bool valid) {
+           const std::string& field, long long ident, bool valid) {
     try {
         if (ident == 0 || !valid) throw game_state::Rejected();
         game_state::State s = game_state::transaction(req);
@@ -182,13 +182,13 @@ void watch(httplib::Response& res, const httplib::Request& req, const std::strin
     }
 }
 
-// exact server lottery weights were never exposed; preserve the documented minimum tier.
-int64_t film_rarity(const ojson& film_j) {
+// exact server lottery weights were never exposed; preserve the documented minimum tier
+long long film_rarity(const ojson& film_j) {
     if (!film_j.is_number_integer() && !film_j.is_number_unsigned())
         throw game_state::Rejected("Unsupported film");
-    int64_t film = film_j.get<int64_t>();
+    long long film = film_j.get<long long>();
     if (!(510001 <= film && film <= 510006)) throw game_state::Rejected("Unsupported film");
-    return std::min<int64_t>(film - 510000, 5);
+    return std::min<long long>(film - 510000, 5);
 }
 
 // minimal JPEG header check (replaces PIL verify); returns the raw bytes to store
@@ -200,7 +200,7 @@ std::string jpeg_bytes(const ojson& data) {
     for (const ojson& b : data) {
         if (!b.is_number_integer() && !b.is_number_unsigned())
             throw game_state::Rejected("Invalid photo image");
-        int64_t v = b.get<int64_t>();
+        long long v = b.get<long long>();
         if (v < 0 || v > 255) throw game_state::Rejected("Invalid photo image");
         out.push_back(static_cast<char>(v));
     }
@@ -218,7 +218,7 @@ ojson unpack_items(const ojson& raw) {
     for (const ojson& b : raw) {
         if (!b.is_number_integer() && !b.is_number_unsigned())
             throw game_state::Rejected("Invalid album layout");
-        int64_t v = b.get<int64_t>();
+        long long v = b.get<long long>();
         if (v < 0 || v > 255) throw game_state::Rejected("Invalid album layout");
         body.push_back(static_cast<char>(v));
     }
@@ -238,14 +238,14 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
         const ojson& theme = p[3];
         if (!(page.is_number_integer() || page.is_number_unsigned()))
             throw game_state::Rejected("Invalid album page");
-        int64_t pg = page.get<int64_t>();
+        long long pg = page.get<long long>();
         if (!((1 <= pg && pg <= 10) || (101 <= pg && pg <= 110)))
             throw game_state::Rejected("Invalid album page");
         bool detailed = ends_with(req.path, "DetailArranging");
         ojson items = unpack_items(raw);
 
         game_state::State s = game_state::transaction(req);
-        std::vector<int64_t> selected;
+        std::vector<long long> selected;
         for (ojson& item : items) {
             size_t need = detailed ? 12 : 5;
             if (!item.is_array() || item.size() != need)
@@ -254,7 +254,7 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
             if (kind == 1) {
                 rjson* photo = s.one("Photo", rjson{{"id", item[0]}});
                 if (!photo) throw game_state::Rejected("Photo is not owned");
-                int64_t pid = photo->at("id").get<int64_t>();
+                long long pid = photo->at("id").get<long long>();
                 if (std::find(selected.begin(), selected.end(), pid) != selected.end())
                     throw game_state::Rejected("Duplicate photo");
                 selected.push_back(pid);
@@ -263,12 +263,12 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
                 item[offset + 1] = as_ojson(photo->at("sasToken"));
             } else if (kind == 3) {
                 if (!(item[0].is_number() &&
-                      game_state::master("album_theme_master", item[0].get<int64_t>())))
+                      game_state::master("album_theme_master", item[0].get<long long>())))
                     throw game_state::Rejected("Unknown theme");
             } else if (kind == 2) {
                 const ojson* decoration =
                     item[0].is_number() ? game_state::master("decoration_master",
-                                                             item[0].get<int64_t>())
+                                                             item[0].get<long long>())
                                         : nullptr;
                 if (!decoration ||
                     (!decoration->at("is_default").get<bool>() &&
@@ -276,7 +276,7 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
                     throw game_state::Rejected("Decoration is not owned");
             } else if (kind == 4) {
                 const ojson* stamp = item[0].is_number()
-                                         ? game_state::master("stamp_master", item[0].get<int64_t>())
+                                         ? game_state::master("stamp_master", item[0].get<long long>())
                                          : nullptr;
                 std::vector<rjson> owned;
                 for (rjson& row : s.rows("Stamp")) {
@@ -299,7 +299,7 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
         }
         if (!theme.is_null()) {
             const ojson* tm = theme.is_number()
-                                  ? game_state::master("album_theme_master", theme.get<int64_t>())
+                                  ? game_state::master("album_theme_master", theme.get<long long>())
                                   : nullptr;
             if (!tm) throw game_state::Rejected("Unknown theme");
         }
@@ -312,9 +312,9 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
             items = std::move(sorted);
         }
         bool normal = pg < 100;
-        int64_t mask = normal ? 0 : (int64_t{1} << (pg - 101));
+        long long mask = normal ? 0 : (1LL << (pg - 101));
         for (rjson& photo : s.rows("Photo")) {
-            int64_t pid = photo.at("id").get<int64_t>();
+            long long pid = photo.at("id").get<long long>();
             bool is_sel = std::find(selected.begin(), selected.end(), pid) != selected.end();
             if (normal) {
                 if (is_sel) {
@@ -327,8 +327,8 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
                     s.update("Photo", &photo, rjson{{"useAlbumPage", nullptr}});
                 }
             } else {
-                int64_t deco = photo.at("useDecoPage").get<int64_t>();
-                int64_t flags = is_sel ? (deco | mask) : (deco & ~mask);
+                long long deco = photo.at("useDecoPage").get<long long>();
+                long long flags = is_sel ? (deco | mask) : (deco & ~mask);
                 if (flags != deco) s.update("Photo", &photo, rjson{{"useDecoPage", flags}});
             }
         }
@@ -382,7 +382,7 @@ void album_arranging(const httplib::Request& req, httplib::Response& res) {
 void register_photo(httplib::Server& svr) {
     // /api/Photo/WatchMusicVideo?mMusicVideoId=
     svr.Post("/api/Photo/WatchMusicVideo", [](const httplib::Request& req, httplib::Response& res) {
-        int64_t m_music_video_id =
+        long long m_music_video_id =
             req.has_param("mMusicVideoId") ? std::stoll(req.get_param_value("mMusicVideoId")) : 0;
         watch(res, req, "MusicVideo", "musicVideoMasterId", m_music_video_id,
               game_state::master("music_video_master", m_music_video_id) != nullptr);
@@ -391,7 +391,7 @@ void register_photo(httplib::Server& svr) {
     // /api/Photo/WatchTheaterStory?mTheaterStoryId=
     svr.Post("/api/Photo/WatchTheaterStory",
              [](const httplib::Request& req, httplib::Response& res) {
-                 int64_t m_theater_story_id =
+                 long long m_theater_story_id =
                      req.has_param("mTheaterStoryId")
                          ? std::stoll(req.get_param_value("mTheaterStoryId"))
                          : 0;
@@ -400,7 +400,7 @@ void register_photo(httplib::Server& svr) {
                      auto it = chapter.find("stories");
                      if (it != chapter.end() && it->is_array())
                          for (const ojson& story : *it)
-                             if (story.value("id_", static_cast<int64_t>(0)) == m_theater_story_id) {
+                             if (story.value("id_", static_cast<long long>(0)) == m_theater_story_id) {
                                  valid = true;
                                  break;
                              }
@@ -436,7 +436,7 @@ void register_photo(httplib::Server& svr) {
             ojson p = pipeline::read_request(req);
             if (!p.is_array() || p.size() != 5 || !p[0].is_null())
                 throw game_state::Rejected("Unsupported photo request");
-            int64_t rarity = film_rarity(p[1]);
+            long long rarity = film_rarity(p[1]);
             std::string original = jpeg_bytes(p[2]);
             std::string thumbnail = jpeg_bytes(p[3]);
             if (!p[4].is_array() || p[4].size() > 30)
@@ -452,7 +452,7 @@ void register_photo(httplib::Server& svr) {
             if (!bad)
                 for (const ojson& cid : chars)
                     if (!cid.is_number() ||
-                        !game_state::master("character_base_master", cid.get<int64_t>())) {
+                        !game_state::master("character_base_master", cid.get<long long>())) {
                         bad = true;
                         break;
                     }
@@ -460,7 +460,7 @@ void register_photo(httplib::Server& svr) {
             std::string name = new_uuid() + ".jpg";
 
             game_state::State s = game_state::transaction(req);
-            s.pay({{p[1].get<int64_t>(), 1}});
+            s.pay({{p[1].get<long long>(), 1}});
             std::vector<std::pair<std::string, std::string>> variants = {{"original", original},
                                                                          {"thumbnail", thumbnail}};
             for (const auto& vd : variants) {
@@ -488,13 +488,13 @@ void register_photo(httplib::Server& svr) {
             values["taggedCharacterBaseMasterIds"] = as_rjson(chars_json);
             values["useDecoPage"] = 0;
             rjson row = s.insert("Photo", values);
-            for (int64_t ident : {static_cast<int64_t>(200300), static_cast<int64_t>(10)})
+            for (long long ident : {static_cast<long long>(200300), static_cast<long long>(10)})
                 game_state::mission_progress(s, ident, 1, true);
             for (const ojson& cid : chars)
-                game_state::character_progress(s, cid.get<int64_t>(), 9, 1);
+                game_state::character_progress(s, cid.get<long long>(), 9, 1);
             s.commit();
             ojson result;
-            result["photo_id"] = row.at("id").get<int64_t>();
+            result["photo_id"] = row.at("id").get<long long>();
             result["file_name"] = name;
             result["sas_token"] = "";
             result["rarity"] = rarity;
@@ -534,7 +534,7 @@ void register_photo(httplib::Server& svr) {
                          throw game_state::Rejected();
                      for (const ojson& c : p[1])
                          if (!c.is_number() ||
-                             !game_state::master("character_base_master", c.get<int64_t>()))
+                             !game_state::master("character_base_master", c.get<long long>()))
                              throw game_state::Rejected();
                      game_state::State s = game_state::transaction(req);
                      rjson* row = s.one("Photo", rjson{{"id", p[0]}});

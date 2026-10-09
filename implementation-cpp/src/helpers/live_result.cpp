@@ -19,10 +19,10 @@ const std::unordered_map<long long, double> kRateWeight = {
     {enums::TimingTypes::PERFECT_STAR, 101.0},
 };
 
-// rate is capped at 101 in the binary; anything above returns None_.
+// rate is capped at 101 in the binary; anything above returns None_
 constexpr double kRateCap = 101.0;
 
-// GetAchievementRateGrade thresholds (%), highest first.
+// GetAchievementRateGrade thresholds (%), highest first
 const std::array<std::pair<double, long long>, 9> kGradeThresholds = {{
     {100.95, enums::AchievementRateGrades::SSS},
     {100.75, enums::AchievementRateGrades::SSPlus},

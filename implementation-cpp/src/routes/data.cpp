@@ -9,7 +9,7 @@
 #include "master_data.h"
 #include "pipeline.h"
 
-// ports routes/data.py plus the /master-data/production blob handler from app.py.
+// ports routes/data.py plus the /master-data/production blob handler from app.py
 
 namespace routes {
 

@@ -3,7 +3,7 @@
 #include "headers.h"
 #include "wire.h"
 
-// ports routes/debug.py — DEV-ONLY tooling. Every endpoint is a stub that returns a
+// ports routes/debug.py — DEV-ONLY tooling. every endpoint is a stub that returns a
 // default result (the Python reads path/query/body but discards it), so the handlers
 // only build the common_response envelope. 170 routes, source order preserved so
 // httplib first-match-wins routing matches FastAPI's declaration order.
@@ -13,7 +13,7 @@ namespace routes {
 namespace {
 
 // respond(result) with the result encoded under `name`; `result` defaults to a model's
-// default instance (empty object -> all fields default).
+// default instance (empty object -> all fields default)
 httplib::Server::Handler result_handler(const char* name,
                                          wire::json result = wire::json::object()) {
     return [name, result](const httplib::Request&, httplib::Response& res) {

@@ -10,9 +10,9 @@
 #include <utility>
 #include <vector>
 
-// Per-account transactional state for multi-step gameplay writes. Ports helpers/game_state.py.
-// A State caches the caller's rows for the duration of one write transaction, tracks what it
-// changed, and can emit the `present` diff the client expects. Costs/limits come from master
+// per-account transactional state for multi-step gameplay writes. ports helpers/game_state.py.
+// a State caches the caller's rows for the duration of one write transaction, tracks what it
+// changed, and can emit the `present` diff the client expects. costs/limits come from master
 // data; mutations are atomic and serialized per account (the Postgres advisory lock becomes
 // the SQLite write transaction).
 
@@ -31,14 +31,14 @@ struct Rejected : std::runtime_error {
 };
 
 // first cached master row of `table` whose `field` equals `ident`, or nullptr
-const ojson* master(const std::string& table, int64_t ident, const std::string& field = "id_");
+const ojson* master(const std::string& table, long long ident, const std::string& field = "id_");
 
 // round-trip through float32, matching the client's single-precision bonus fields
 double f32(double value);
 
 class State {
 public:
-    explicit State(int64_t uid);
+    explicit State(long long uid);
 
     // caller's rows for an entity table, fetched once then cached and mutated in place
     std::vector<json>& rows(const std::string& name);
@@ -54,7 +54,7 @@ public:
     json insert(const std::string& entity, json values);
 
     // spend items ({itemMasterId: quantity}) and coin atomically; Rejected if unaffordable
-    void pay(const std::map<int64_t, int64_t>& costs, int64_t coin = 0);
+    void pay(const std::map<long long, long long>& costs, long long coin = 0);
     // grant (thing_type, thing_id, quantity) triples consolidated; returns the ReceivedThing[]
     ojson grant(const ojson& things);
 
@@ -64,10 +64,10 @@ public:
     // persist the transaction (the success path of the python `async with` block)
     void commit();
 
-    int64_t uid;
+    long long uid;
     std::unordered_map<std::string, std::vector<json>> tables;
     // changed rows keyed by (entity, pk), in first-touch order
-    std::vector<std::pair<std::pair<std::string, int64_t>, json>> dirty;
+    std::vector<std::pair<std::pair<std::string, long long>, json>> dirty;
 
 private:
     // entities whose per-user primary key is not "id"
@@ -79,11 +79,11 @@ private:
 // returns a State bound to an open write transaction
 State transaction(const httplib::Request& request);
 
-void character_progress(State& s, int64_t base, int64_t mission_id, int64_t delta);
-void mission_progress(State& s, int64_t ident, int64_t delta = 1, bool create = false,
-                      std::optional<int64_t> absolute = std::nullopt);
-void costume_owned(State& s, int64_t base, int64_t ident);
-ojson star_points(State& s, int64_t base, int64_t points);
-void level_missions(State& s, const ojson& cm, int64_t delta, int64_t level);
+void character_progress(State& s, long long base, long long mission_id, long long delta);
+void mission_progress(State& s, long long ident, long long delta = 1, bool create = false,
+                      std::optional<long long> absolute = std::nullopt);
+void costume_owned(State& s, long long base, long long ident);
+ojson star_points(State& s, long long base, long long points);
+void level_missions(State& s, const ojson& cm, long long delta, long long level);
 
 }  // namespace game_state

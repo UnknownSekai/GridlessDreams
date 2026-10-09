@@ -15,7 +15,7 @@ namespace game_state {
 
 namespace {
 
-using UpsertFn = db::ExecutableQuery (*)(std::int64_t, const wire::json&);
+using UpsertFn = db::ExecutableQuery (*)(long long, const wire::json&);
 
 // snake_case cache attribute name -> PascalCase on-disk header name
 std::string to_pascal(const std::string& snake) {
@@ -227,8 +227,8 @@ UpsertFn resolve_upsert(const std::string& table) {
 
 // self.dirty[(entity, pk)] = row -- replace the value in place if present (python dicts keep
 // first-insertion position on reassignment), else append in first-touch order
-void record_dirty(std::vector<std::pair<std::pair<std::string, int64_t>, json>>& dirty,
-                  const std::string& entity, int64_t pk, const json& row) {
+void record_dirty(std::vector<std::pair<std::pair<std::string, long long>, json>>& dirty,
+                  const std::string& entity, long long pk, const json& row) {
     for (auto& e : dirty)
         if (e.first.first == entity && e.first.second == pk) {
             e.second = row;
@@ -246,7 +246,7 @@ const std::unordered_map<std::string, std::string> State::KEY_FIELD = {
     {"CharacterLesson", "characterBaseMasterId"},
 };
 
-const ojson* master(const std::string& table, int64_t ident, const std::string& field) {
+const ojson* master(const std::string& table, long long ident, const std::string& field) {
     for (const ojson& x : master_data::table(to_pascal(table))) {
         auto it = x.find(field);
         if (it != x.end() && *it == ident) return &x;
@@ -258,7 +258,7 @@ double f32(double value) {
     return static_cast<double>(static_cast<float>(value));
 }
 
-State::State(int64_t uid) : uid(uid), tx_(db::transaction()) {}
+State::State(long long uid) : uid(uid), tx_(db::transaction()) {}
 
 std::vector<json>& State::rows(const std::string& name) {
     auto it = tables.find(name);
@@ -308,15 +308,15 @@ void State::update(const std::string& entity, json* row, const json& values) {
     for (auto it = values.begin(); it != values.end(); ++it) q.args.push_back(it.value());
     db::execute(q);
     row->update(values);
-    record_dirty(dirty, entity, row->at(pk).get<int64_t>(), *row);
+    record_dirty(dirty, entity, row->at(pk).get<long long>(), *row);
 }
 
 json State::insert(const std::string& entity, json values) {
     std::vector<json>& rws = rows(entity);
     const std::string pk = key_field(entity);
     if (pk == "id" && !values.contains("id")) {
-        int64_t mx = 0;
-        for (const json& r : rws) mx = std::max(mx, r.at("id").get<int64_t>());
+        long long mx = 0;
+        for (const json& r : rws) mx = std::max(mx, r.at("id").get<long long>());
         values["id"] = mx + 1;
     }
     UpsertFn fn = resolve_upsert(user_data::_table(entity));
@@ -326,11 +326,11 @@ json State::insert(const std::string& entity, json values) {
                       "\" WHERE \"userId\"=$1 AND \"" + pk + "\"=$2";
     json row = db::fetchrow(db::SelectQuery(nullptr, sql, uid, values.at(pk))).value();
     rws.push_back(row);
-    record_dirty(dirty, entity, row.at(pk).get<int64_t>(), row);
+    record_dirty(dirty, entity, row.at(pk).get<long long>(), row);
     return row;
 }
 
-void State::pay(const std::map<int64_t, int64_t>& costs, int64_t coin) {
+void State::pay(const std::map<long long, long long>& costs, long long coin) {
     bool any_negative = false;
     for (const auto& kv : costs)
         if (kv.second < 0) {
@@ -338,30 +338,30 @@ void State::pay(const std::map<int64_t, int64_t>& costs, int64_t coin) {
             break;
         }
     if (coin < 0 || any_negative) throw Rejected("Invalid cost");
-    std::unordered_map<int64_t, json*> items;
-    for (json& r : rows("Item")) items[r.at("itemMasterId").get<int64_t>()] = &r;
+    std::unordered_map<long long, json*> items;
+    for (json& r : rows("Item")) items[r.at("itemMasterId").get<long long>()] = &r;
     json* currency = one("Currency");
     bool insufficient = false;
     for (const auto& kv : costs) {
-        int64_t stock = 0;
+        long long stock = 0;
         auto it = items.find(kv.first);
-        if (it != items.end()) stock = it->second->value("stock", static_cast<int64_t>(0));
+        if (it != items.end()) stock = it->second->value("stock", static_cast<long long>(0));
         if (stock < kv.second) {
             insufficient = true;
             break;
         }
     }
     if (!insufficient && coin != 0 &&
-        (currency == nullptr || currency->at("coin").get<int64_t>() < coin))
+        (currency == nullptr || currency->at("coin").get<long long>() < coin))
         insufficient = true;
     if (insufficient) throw Rejected("Insufficient resources");
     for (const auto& kv : costs)
         if (kv.second != 0) {
             json* row = items.at(kv.first);
-            update("Item", row, json{{"stock", row->at("stock").get<int64_t>() - kv.second}});
+            update("Item", row, json{{"stock", row->at("stock").get<long long>() - kv.second}});
         }
     if (coin != 0)
-        update("Currency", currency, json{{"coin", currency->at("coin").get<int64_t>() - coin}});
+        update("Currency", currency, json{{"coin", currency->at("coin").get<long long>() - coin}});
 }
 
 ojson State::grant(const ojson& things) {
@@ -373,10 +373,10 @@ ojson State::grant(const ojson& things) {
         if (name && std::find(names.begin(), names.end(), *name) == names.end())
             names.push_back(*name);
     }
-    std::unordered_map<std::string, std::unordered_map<int64_t, json>> snapshots;
+    std::unordered_map<std::string, std::unordered_map<long long, json>> snapshots;
     for (const std::string& name : names) {
-        std::unordered_map<int64_t, json>& snap = snapshots[name];
-        for (json& r : rows(name)) snap[r.at("id").get<int64_t>()] = r;
+        std::unordered_map<long long, json>& snap = snapshots[name];
+        for (json& r : rows(name)) snap[r.at("id").get<long long>()] = r;
     }
     std::vector<things::ThingTriple> triples;
     triples.reserve(things.size());
@@ -386,13 +386,13 @@ ojson State::grant(const ojson& things) {
     std::vector<things::json> result = things::grant_things_consolidated(uid, triples);
     // grant helpers can create several resource types; reload just the affected rows
     for (const std::string& name : names) {
-        const std::unordered_map<int64_t, json>& before = snapshots[name];
+        const std::unordered_map<long long, json>& before = snapshots[name];
         tables.erase(name);
         for (json& r : rows(name)) {
-            int64_t id = r.at("id").get<int64_t>();
+            long long id = r.at("id").get<long long>();
             auto bit = before.find(id);
             if (bit == before.end() || bit->second != r)
-                record_dirty(dirty, name, r.at(key_field(name)).get<int64_t>(), r);
+                record_dirty(dirty, name, r.at(key_field(name)).get<long long>(), r);
         }
     }
     ojson out = ojson::array();
@@ -417,7 +417,7 @@ State transaction(const httplib::Request& request) {
     return State(*uid);
 }
 
-void character_progress(State& s, int64_t base, int64_t mission_id, int64_t delta) {
+void character_progress(State& s, long long base, long long mission_id, long long delta) {
     if (delta <= 0) return;
     const ojson* m = master("character_mission_master", mission_id);
     if (m == nullptr) return;
@@ -426,24 +426,24 @@ void character_progress(State& s, int64_t base, int64_t mission_id, int64_t delt
     if (stages_arr.is_array())
         for (const ojson& st : stages_arr) stages.push_back(&st);
     std::stable_sort(stages.begin(), stages.end(), [](const ojson* a, const ojson* b) {
-        return a->at("stage_order").get<int64_t>() < b->at("stage_order").get<int64_t>();
+        return a->at("stage_order").get<long long>() < b->at("stage_order").get<long long>();
     });
     if (stages.empty()) return;
     json* row = s.one("CharacterMission", json{{"characterBaseMasterId", base},
                                                {"characterMissionMasterId", mission_id}});
-    int64_t count = (row != nullptr ? row->at("currentCount").get<int64_t>() : 0) + delta;
-    int64_t cleared = 0;
+    long long count = (row != nullptr ? row->at("currentCount").get<long long>() : 0) + delta;
+    long long cleared = 0;
     for (const ojson* st : stages)
-        if (st->at("goal_count").get<int64_t>() <= count)
-            cleared = std::max(cleared, st->at("stage_order").get<int64_t>());
+        if (st->at("goal_count").get<long long>() <= count)
+            cleared = std::max(cleared, st->at("stage_order").get<long long>());
     if (row != nullptr) {
-        int64_t cleared_now = std::max(cleared, row->at("clearedStageOrder").get<int64_t>());
+        long long cleared_now = std::max(cleared, row->at("clearedStageOrder").get<long long>());
         s.update("CharacterMission", row,
                  json{{"currentCount", count}, {"clearedStageOrder", cleared_now}});
     } else {
         s.insert("CharacterMission", json{{"characterBaseMasterId", base},
                                           {"characterMissionMasterId", mission_id},
-                                          {"currentStageMasterId", stages.front()->at("id_").get<int64_t>()},
+                                          {"currentStageMasterId", stages.front()->at("id_").get<long long>()},
                                           {"currentCount", count},
                                           {"clearedStageOrder", cleared},
                                           {"rewardReceivedStageOrder", 0},
@@ -451,8 +451,8 @@ void character_progress(State& s, int64_t base, int64_t mission_id, int64_t delt
     }
 }
 
-void mission_progress(State& s, int64_t ident, int64_t delta, bool create,
-                      std::optional<int64_t> absolute) {
+void mission_progress(State& s, long long ident, long long delta, bool create,
+                      std::optional<long long> absolute) {
     const ojson* m = master("mission_master", ident);
     if (m == nullptr) return;
     const ojson& stages = m->at("stages");
@@ -461,16 +461,16 @@ void mission_progress(State& s, int64_t ident, int64_t delta, bool create,
     if (row == nullptr && !create) return;
     const ojson* stage = &stages[0];
     if (row != nullptr) {
-        int64_t current = row->at("currentMissionStageMasterId").get<int64_t>();
+        long long current = row->at("currentMissionStageMasterId").get<long long>();
         for (const ojson& x : stages)
-            if (x.at("id_").get<int64_t>() == current) {
+            if (x.at("id_").get<long long>() == current) {
                 stage = &x;
                 break;
             }
     }
-    int64_t old = row != nullptr ? row->at("missionCurrentCount").get<int64_t>() : 0;
-    int64_t count = absolute.has_value() ? std::max(old, *absolute) : old + delta;
-    bool cleared = count >= stage->at("stage_goal_value").get<int64_t>();
+    long long old = row != nullptr ? row->at("missionCurrentCount").get<long long>() : 0;
+    long long count = absolute.has_value() ? std::max(old, *absolute) : old + delta;
+    bool cleared = count >= stage->at("stage_goal_value").get<long long>();
     bool newly = cleared && (row == nullptr || !row->at("isCleared").get<bool>());
     if (row != nullptr) {
         bool was_cleared = row->at("isCleared").get<bool>();
@@ -478,7 +478,7 @@ void mission_progress(State& s, int64_t ident, int64_t delta, bool create,
                  json{{"missionCurrentCount", count}, {"isCleared", was_cleared || cleared}});
     } else {
         s.insert("Mission", json{{"missionMasterId", ident},
-                                 {"currentMissionStageMasterId", stage->at("id_").get<int64_t>()},
+                                 {"currentMissionStageMasterId", stage->at("id_").get<long long>()},
                                  {"missionCurrentCount", count},
                                  {"isCleared", cleared},
                                  {"isRewardReceived", false}});
@@ -489,67 +489,67 @@ void mission_progress(State& s, int64_t ident, int64_t delta, bool create,
     }
 }
 
-void costume_owned(State& s, int64_t base, int64_t ident) {
+void costume_owned(State& s, long long base, long long ident) {
     const ojson* b = master("character_base_master", base);
     const ojson* c = master("costume_master", ident);
     if (b == nullptr || c == nullptr ||
         s.one("CharacterBase", json{{"characterBaseMasterId", base}}) == nullptr)
         throw Rejected();
-    const ojson* group = master("costume_group_master", c->at("costume_group_master_id").get<int64_t>());
+    const ojson* group = master("costume_group_master", c->at("costume_group_master_id").get<long long>());
     const ojson* wearable =
         group != nullptr
             ? master("costume_wearable_character_group_master",
-                     group->at("costume_wearable_character_group_master_id").get<int64_t>())
+                     group->at("costume_wearable_character_group_master_id").get<long long>())
             : nullptr;
     if (wearable != nullptr) {
         bool allowed = false;
         const ojson& ids = wearable->at("character_base_master_ids");
         if (ids.is_array())
             for (const ojson& v : ids)
-                if (v.get<int64_t>() == base) {
+                if (v.get<long long>() == base) {
                     allowed = true;
                     break;
                 }
         if (!allowed) throw Rejected();
     }
     if (!c->at("is_default").get<bool>() &&
-        b->at("default_costume_master_id").get<int64_t>() != ident &&
+        b->at("default_costume_master_id").get<long long>() != ident &&
         s.one("Costume", json{{"costumeMasterId", ident}}) == nullptr)
         throw Rejected();
 }
 
-ojson star_points(State& s, int64_t base, int64_t points) {
+ojson star_points(State& s, long long base, long long points) {
     json* row = s.one("CharacterBase", json{{"characterBaseMasterId", base}});
     if (row == nullptr) throw Rejected();
-    int64_t before = row->at("starRank").get<int64_t>();
-    int64_t rank = before;
-    int64_t old = row->at("totalStarPoint").get<int64_t>();
-    int64_t balance = old + points;
+    long long before = row->at("starRank").get<long long>();
+    long long rank = before;
+    long long old = row->at("totalStarPoint").get<long long>();
+    long long balance = old + points;
     while (true) {
         const ojson* m = master("character_star_rank_master", rank, "rank");
-        if (m == nullptr || m->at("next_rank_point").get<int64_t>() <= 0 ||
-            balance < m->at("next_rank_point").get<int64_t>() ||
+        if (m == nullptr || m->at("next_rank_point").get<long long>() <= 0 ||
+            balance < m->at("next_rank_point").get<long long>() ||
             master("character_star_rank_master", rank + 1, "rank") == nullptr)
             break;
-        balance -= m->at("next_rank_point").get<int64_t>();
+        balance -= m->at("next_rank_point").get<long long>();
         rank += 1;
     }
     s.update("CharacterBase", row, json{{"starRank", rank}, {"totalStarPoint", balance}});
     ojson things = ojson::array();
     for (const ojson& r : master_data::table("StarRankRewardMaster")) {
-        int64_t reward_rank = r.at("rank").get<int64_t>();
-        if (r.at("character_base_master_id").get<int64_t>() == base && before < reward_rank &&
+        long long reward_rank = r.at("rank").get<long long>();
+        if (r.at("character_base_master_id").get<long long>() == base && before < reward_rank &&
             reward_rank <= rank) {
             const ojson* group =
                 master("character_star_rank_reward_group_master",
-                       r.at("character_star_rank_reward_group_master_id").get<int64_t>());
+                       r.at("character_star_rank_reward_group_master_id").get<long long>());
             if (group != nullptr) {
                 const ojson& rewards = group->at("rewards");
                 if (rewards.is_array())
                     for (const ojson& x : rewards)
-                        things.push_back(ojson::array({x.at("thing_type").get<int64_t>(),
-                                                       x.at("thing_id").get<int64_t>(),
-                                                       x.at("thing_quantity").get<int64_t>()}));
+                        things.push_back(ojson::array({x.at("thing_type").get<long long>(),
+                                                       x.at("thing_id").get<long long>(),
+                                                       x.at("thing_quantity").get<long long>()}));
             }
         }
     }
@@ -564,15 +564,15 @@ ojson star_points(State& s, int64_t base, int64_t points) {
     return result;
 }
 
-void level_missions(State& s, const ojson& cm, int64_t delta, int64_t level) {
+void level_missions(State& s, const ojson& cm, long long delta, long long level) {
     if (delta <= 0) return;
-    int64_t base_master_id = cm.at("character_base_master_id").get<int64_t>();
+    long long base_master_id = cm.at("character_base_master_id").get<long long>();
     const ojson* base = master("character_base_master", base_master_id);
     character_progress(s, base_master_id, 3, delta);
     mission_progress(s, 1200, delta);
     if (base != nullptr)
-        mission_progress(s, base->at("company_master_id").get<int64_t>() * 100 + 20, delta);
-    for (int64_t mid : {static_cast<int64_t>(300030), static_cast<int64_t>(300100)})
+        mission_progress(s, base->at("company_master_id").get<long long>() * 100 + 20, delta);
+    for (long long mid : {static_cast<long long>(300030), static_cast<long long>(300100)})
         mission_progress(s, mid, delta);
     if (level >= 10) mission_progress(s, 8, 1, true, 1);
 }

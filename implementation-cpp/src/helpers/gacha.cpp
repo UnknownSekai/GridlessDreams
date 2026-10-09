@@ -22,7 +22,7 @@ constexpr long long kDaiPiece = 40;      // a Rare4 dupe also pays its own Actor
 constexpr long long kPiecePickup = 400;  // Rare4 pickup rides along with this many pieces
 constexpr long long kPieceRegular = 100;
 
-// one pool's per-rarity totals plus the flat per-item rate a pickup gets out of its rarity's total.
+// one pool's per-rarity totals plus the flat per-item rate a pickup gets out of its rarity's total
 struct Rates {
     std::map<long long, double> normal;
     std::map<long long, double> fixed;
@@ -60,7 +60,7 @@ const std::map<long long, long long>& poster_bits() {
     return m;
 }
 
-// rarity -> dugong amount a convertible character dupe pays.
+// rarity -> dugong amount a convertible character dupe pays
 const std::map<long long, long long>& character_dupe() {
     static const std::map<long long, long long> m = {
         {enums::CharacterRarities::Rare2, 1},
@@ -69,7 +69,7 @@ const std::map<long long, long long>& character_dupe() {
     };
     return m;
 }
-// rarity -> (frame item id, quantity) a poster dupe pays.
+// rarity -> (frame item id, quantity) a poster dupe pays
 const std::map<long long, std::pair<long long, long long>>& poster_dupe() {
     static const std::map<long long, std::pair<long long, long long>> m = {
         {enums::PossessionRarities::R, {130063, 5}},
@@ -79,7 +79,7 @@ const std::map<long long, std::pair<long long, long long>>& poster_dupe() {
     return m;
 }
 
-// {id_: row} over GachaMaster, built once (python _BY_ID).
+// {id_: row} over GachaMaster, built once (python _BY_ID)
 const std::unordered_map<long long, const json*>& by_id() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -88,7 +88,7 @@ const std::unordered_map<long long, const json*>& by_id() {
     }();
     return m;
 }
-// {id_: row} over CharacterMaster, built once (python _CHARACTERS).
+// {id_: row} over CharacterMaster, built once (python _CHARACTERS)
 const std::unordered_map<long long, const json*>& characters() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -97,7 +97,7 @@ const std::unordered_map<long long, const json*>& characters() {
     }();
     return m;
 }
-// {id_: row} over PosterMaster, built once (python _POSTERS).
+// {id_: row} over PosterMaster, built once (python _POSTERS)
 const std::unordered_map<long long, const json*>& posters() {
     static const std::unordered_map<long long, const json*> m = [] {
         std::unordered_map<long long, const json*> r;
@@ -106,7 +106,7 @@ const std::unordered_map<long long, const json*>& posters() {
     }();
     return m;
 }
-// {character_master_id: item_master_id} for a given TalentBloom item type, built once.
+// {character_master_id: item_master_id} for a given TalentBloom item type, built once
 const std::unordered_map<long long, long long>& piece_index(long long talent_bloom_item_type) {
     static const std::unordered_map<long long, long long> dai = [] {
         std::unordered_map<long long, long long> r;
@@ -129,7 +129,7 @@ const std::unordered_map<long long, long long>& piece_index(long long talent_blo
 // client is told 0.0390477. 1e7 == 10 ** 7.
 double ceil7(double value) { return std::ceil(value * 1e7) / 1e7; }
 
-// the rate entry for a banner, or null: its own (gacha_type, card_type), else the Pickup fallback.
+// the rate entry for a banner, or null: its own (gacha_type, card_type), else the Pickup fallback
 const Rates* rates_for(const json& gacha) {
     long long card = gacha.at("card_type").get<long long>();
     const auto& table = rates_table();
@@ -139,7 +139,7 @@ const Rates* rates_for(const json& gacha) {
     return it2 != table.end() ? &it2->second : nullptr;
 }
 
-// the rarity of the Character/Poster a thing points at, or nullopt if unknown.
+// the rarity of the Character/Poster a thing points at, or nullopt if unknown
 std::optional<long long> rarity_of(const json& gacha, const json& thing) {
     const auto& lookup = gacha.at("card_type").get<long long>() == enums::GachaCardTypes::Character
                              ? characters()
@@ -196,7 +196,7 @@ std::vector<json> pool(const json& gacha, const std::map<long long, double>& tot
 
 long long now_utc() { return static_cast<long long>(std::time(nullptr)); }
 
-// Howard Hinnant's days-from-civil (days relative to 1970-01-01).
+// Howard Hinnant's days-from-civil (days relative to 1970-01-01)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -269,7 +269,7 @@ bool iso_epoch_seconds(const std::string& s, long long& out) {
     return true;
 }
 
-// the module default rng (python global `random`); per-thread so concurrent rolls never race.
+// the module default rng (python global `random`); per-thread so concurrent rolls never race
 std::mt19937_64& default_engine() {
     static thread_local std::mt19937_64 eng{std::random_device{}()};
     return eng;

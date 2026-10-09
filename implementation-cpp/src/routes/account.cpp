@@ -13,8 +13,8 @@
 #include "../unions.h"
 #include "../wire.h"
 
-// Ports routes/account.py. register/auth (JWT), takeover + password link and
-// birthdate. Stubs stay stubs (connect/delete/disconnect/transition/current).
+// ports routes/account.py. register/auth (JWT), takeover + password link and
+// birthdate. stubs stay stubs (connect/delete/disconnect/transition/current).
 
 namespace routes {
 
@@ -27,18 +27,18 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// respond(result, present=...) -> common envelope.
+// respond(result, present=...) -> common envelope
 void respond(httplib::Response& res, const char* result_name, const json& result,
              const json& present = json::array()) {
     send(res, wire::common_response(result_name, result, json::array(), present));
 }
 
-// respond(Model()) -> empty result entity, no present.
+// respond(Model()) -> empty result entity, no present
 void respond_empty(httplib::Response& res, const char* result_name) {
     respond(res, result_name, json::object());
 }
 
-// days since the unix epoch for a civil date (proleptic gregorian).
+// days since the unix epoch for a civil date (proleptic gregorian)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;

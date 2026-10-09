@@ -14,7 +14,7 @@
 #include "pipeline.h"
 #include "wire.h"
 
-// ports routes/inbox.py.
+// ports routes/inbox.py
 
 namespace routes {
 namespace {
@@ -22,7 +22,7 @@ namespace {
 using wire::json;
 
 // claim the given inboxes: grant each reward, mark received, and present the
-// inventory entities the grants wrote plus the now-received inbox rows.
+// inventory entities the grants wrote plus the now-received inbox rows
 void receive(httplib::Response& res, std::optional<long long> user_id,
              const std::vector<long long>& inbox_ids) {
     json result;
@@ -90,7 +90,7 @@ void register_inbox(httplib::Server& svr) {
              [](const httplib::Request& req, httplib::Response& res) {
                  std::optional<long long> user_id = user_data::current_user_id(req);
                  // a diff, not the whole inbox: surface only packages not seen yet, then mark them,
-                 // so a follow-up call returns an empty present (matching the official).
+                 // so a follow-up call returns an empty present (matching the official)
                  json present = json::array();
                  if (user_id) {
                      std::vector<db::json> rows = db::fetch(db::user::get_unchecked_inboxs(*user_id));

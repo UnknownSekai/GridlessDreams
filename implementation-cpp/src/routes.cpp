@@ -37,8 +37,8 @@
 #include "routes/roulette.h"
 #include "routes/shops.h"
 
-// Ports routes/__init__.py (routers) + app.py's include_router()/live_modes.install()
-// wiring: register every base module, then prepend the live_modes overrides so they win.
+// ports routes/__init__.py (routers) + app.py's include_router()/live_modes.install()
+// wiring: register every base module, then prepend the live_modes overrides so they win
 
 namespace routes {
 
@@ -80,7 +80,7 @@ void setup(httplib::Server& svr) {
     register_shops(svr);
 
     // prepend the live/lesson/course overrides so they take precedence over the base
-    // lives/lessons handlers (install() PREPENDS; cpp-httplib is first-match-wins).
+    // lives/lessons handlers (install() PREPENDS; cpp-httplib is first-match-wins)
     install_live_modes(svr);
 }
 

@@ -5,7 +5,7 @@
 #include "wire.h"
 
 // ports routes/kms_general_payment.py — both endpoints are stubs (no receipt on a private
-// server); they return a default ProcessPaymentResult (result defaults to Success).
+// server); they return a default ProcessPaymentResult (result defaults to Success)
 
 namespace routes {
 

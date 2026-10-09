@@ -35,9 +35,9 @@ void register_login(httplib::Server& svr) {
 
         std::optional<json> account =
             db::fetchrow(db::account::get_account_by_id(user_id.value_or(0)));
-        bool first_login = account.has_value() && (*account).at("lastLoginAt").get<int64_t>() == 0;
+        bool first_login = account.has_value() && (*account).at("lastLoginAt").get<long long>() == 0;
         db::execute(db::account::update_last_login(user_id.value_or(0),
-                                                   static_cast<int64_t>(time(nullptr))));
+                                                   static_cast<long long>(time(nullptr))));
 
         // first login surfaces the whole freshly-created account; later logins only touch User
         json present = first_login

@@ -26,7 +26,7 @@ long long jint(const json& obj, const char* key, long long def) {
     return it->get<long long>();
 }
 
-// nullable field -> the value if present, else json null (python Optional[int] = None).
+// nullable field -> the value if present, else json null (python Optional[int] = None)
 json jopt(const json& obj, const char* key) {
     auto it = obj.find(key);
     if (it == obj.end() || it->is_null()) return json(nullptr);
@@ -47,7 +47,7 @@ void respond(httplib::Response& res, const char* result_name, const json& result
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// Write an EditParty-shaped loadout onto the caller's slots. The client submits the party's full
+// write an EditParty-shaped loadout onto the caller's slots. the client submits the party's full
 // slot list every time, so diff against what is stored -- only the slots that actually moved are
 // written, and only those go in present.
 json _apply_slot_edits(long long user_id, const json& payload) {
@@ -74,7 +74,7 @@ json _apply_slot_edits(long long user_id, const json& payload) {
     return present;
 }
 
-// Move a party's leader marker; returns the present entries for what changed.
+// move a party's leader marker; returns the present entries for what changed
 json _set_leader(long long user_id, long long party_id, long long position) {
     std::optional<json> party;
     for (const db::json& p : db::fetch(db::user::get_partys(user_id))) {
@@ -198,7 +198,7 @@ void register_party(httplib::Server& svr) {
                  for (const db::json& s : db::fetch(db::user::get_party_slots(*user_id)))
                      owned.insert_or_assign(s.at("id").get<long long>(), json(s));
                  std::vector<json> changed;
-                 std::vector<std::pair<std::int64_t, std::int64_t>> positions;
+                 std::vector<std::pair<long long, long long>> positions;
                  for (const json& edit : opt_array(payload, "slots")) {
                      auto it = owned.find(jint(edit, "u_party_slot_id", 0));
                      long long position = jint(edit, "position", 0);

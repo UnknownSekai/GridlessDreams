@@ -6,17 +6,17 @@
 
 #include "wire.h"
 
-// Serve episode scene scripts + episode metadata/read-rewards. Ports
-// helpers/episodes.py. Each vendored _data/episodes/<id>.json holds an episode's
+// serve episode scene scripts + episode metadata/read-rewards. ports
+// helpers/episodes.py. each vendored _data/episodes/<id>.json holds an episode's
 // metadata plus its EpisodeDetail (the full script); scene_bin packs that to the
 // msgpack EpisodeDetailResult[] .bin the client downloads. bin_hashes.json maps an
-// episode id to its "<id>_<hash>" blob name. Results flow as wire::json
+// episode id to its "<id>_<hash>" blob name. results flow as wire::json
 // (EpisodeResult) keyed by field name.
 
 namespace episodes {
 
 // (title, order, story_type) from master data or a vendored file; story_type is a
-// StoryTypes enum value, title is absent for side/character episodes.
+// StoryTypes enum value, title is absent for side/character episodes
 using Meta = std::tuple<std::optional<std::string>, long long, long long>;
 
 // (thing_type, thing_id, thing_quantity)

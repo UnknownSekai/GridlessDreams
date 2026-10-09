@@ -47,9 +47,9 @@ long long _random_gacha_id() {
     return dist(eng);
 }
 
-// Charge a roll. Returns the present-entity names the charge touched, or nullopt -- having
+// charge a roll. returns the present-entity names the charge touched, or nullopt -- having
 // written nothing -- when the caller cannot afford it, so the roll is rejected rather than
-// given away. An empty set means a free pull that charged nothing.
+// given away. an empty set means a free pull that charged nothing.
 std::optional<std::set<std::string>> _spend_cost(long long user_id, const json& detail) {
     if (jbool(detail, "is_free")) return std::set<std::string>{};
 
@@ -68,7 +68,7 @@ std::optional<std::set<std::string>> _spend_cost(long long user_id, const json& 
     }
 
     // both paid and free jewels charge against freeJewel: no captured roll is priced in paid
-    // jewels, leaving that path unobserved. The free-jewel path is confirmed.
+    // jewels, leaving that path unobserved. the free-jewel path is confirmed.
     long long jewels = jint(detail, "free_jewel_amount") + jint(detail, "paid_jewel_amount");
     if (jewels) {
         std::vector<db::json> currencies = db::fetch(db::user::get_currencys(user_id));
@@ -79,9 +79,9 @@ std::optional<std::set<std::string>> _spend_cost(long long user_id, const json& 
     return std::set<std::string>{};
 }
 
-// Hand over one prize, returning its ReceivedThing[]. You don't own it -> you get the
-// character/poster itself. You own a non-maxed poster -> it breaks through one phase and the
-// result reports the phase reached. Anything else -> it converts, and the conversion lands in
+// hand over one prize, returning its ReceivedThing[]. you don't own it -> you get the
+// character/poster itself. you own a non-maxed poster -> it breaks through one phase and the
+// result reports the phase reached. anything else -> it converts, and the conversion lands in
 // received_things instead of the possession.
 std::vector<json> _award_prize(long long user_id, const json& gacha, const json& thing) {
     long long thing_type = jint(thing, "thing_type");
@@ -139,7 +139,7 @@ struct Selection {
 };
 
 // (selectable thing ids, min_select, max_select) for a pickup-selection gacha, or nullopt if
-// this gacha has no selection step.
+// this gacha has no selection step
 std::optional<Selection> _gacha_selection(long long gacha_master_id) {
     static const std::unordered_map<long long, const json*> gacha_master = [] {
         std::unordered_map<long long, const json*> m;
@@ -179,7 +179,7 @@ void register_gachas(httplib::Server& svr) {
 
     // /api/Gachas
     svr.Get("/api/Gachas", [](const httplib::Request&, httplib::Response& res) {
-        // roll_left is always the full limit -- nothing attributes spent rolls to a detail yet.
+        // roll_left is always the full limit -- nothing attributes spent rolls to a detail yet
         json out = json::array();
         for (long long gacha_master_id : gacha::active_gacha_ids()) {
             std::pair<long long, long long> flags = gacha::emission_flags(gacha_master_id);
@@ -341,12 +341,12 @@ void register_gachas(httplib::Server& svr) {
         db::user::add_gacha_rolls(*user_id, gacha.at("id_").get<long long>(),
                                   static_cast<long long>(prizes.size()), _random_gacha_id());
         if (!prizes.empty()) {
-            std::vector<std::int64_t> master_ids;
+            std::vector<long long> master_ids;
             for (const json& t : prizes) master_ids.push_back(jint(t, "thing_id"));
             db::execute(db::user::add_gacha_historys(*user_id, card_type, master_ids, now));
         }
 
-        // what the roll paid out, plus what it charged. Read the types off the awarded things,
+        // what the roll paid out, plus what it charged. read the types off the awarded things,
         // not the prize things: a converted dupe writes items, not the card it was rolled from.
         std::set<std::string> refresh(spent->begin(), spent->end());
         auto add_type = [&refresh](const json& r) {
@@ -396,7 +396,7 @@ void register_gachas(httplib::Server& svr) {
                  }
 
                  // keep the client's order, drop duplicates and anything not offered as selectable
-                 std::vector<std::int64_t> chosen;
+                 std::vector<long long> chosen;
                  std::set<long long> seen;
                  auto it = payload.find("gacha_thing_ids");
                  if (it != payload.end() && it->is_array())

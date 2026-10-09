@@ -11,7 +11,7 @@ namespace password {
 
 namespace {
 
-// argon2-cffi PasswordHasher() defaults.
+// argon2-cffi PasswordHasher() defaults
 constexpr uint32_t T_COST = 3;
 constexpr uint32_t M_COST = 65536;
 constexpr uint32_t PARALLELISM = 4;
@@ -31,7 +31,7 @@ void fill_random(uint8_t* buf, size_t n) {
     }
 }
 
-// Argon2 type encoded in the hash prefix (argon2-cffi verify auto-detects it).
+// Argon2 type encoded in the hash prefix (argon2-cffi verify auto-detects it)
 argon2_type type_of(const std::string& h) {
     if (h.rfind("$argon2id$", 0) == 0) return Argon2_id;
     if (h.rfind("$argon2i$", 0) == 0) return Argon2_i;
@@ -39,8 +39,8 @@ argon2_type type_of(const std::string& h) {
     return Argon2_id;
 }
 
-// Parse the unsigned integer in `h` directly following the first occurrence of
-// `marker`. Returns false if the marker or a digit is missing.
+// parse the unsigned integer in `h` directly following the first occurrence of
+// `marker`. returns false if the marker or a digit is missing.
 bool parse_param(const std::string& h, const char* marker, long long& out) {
     size_t pos = h.find(marker);
     if (pos == std::string::npos) return false;
@@ -86,7 +86,7 @@ bool needs_rehash(const std::string& password_hash) {
 
     // check_needs_rehash compares the whole Parameters tuple, which includes the
     // salt/hash byte lengths decoded from the last two `$`-separated b64 segments
-    // (no padding: bytes = len*3/4).
+    // (no padding: bytes = len*3/4)
     size_t last = password_hash.rfind('$');
     if (last == std::string::npos || last == 0) return true;
     size_t prev = password_hash.rfind('$', last - 1);

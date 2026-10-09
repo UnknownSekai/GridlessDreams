@@ -19,7 +19,7 @@ namespace {
 using ojson = nlohmann::ordered_json;  // master rows + wire results
 using rjson = nlohmann::json;          // db rows (camelCase columns)
 
-// days since the unix epoch for a civil (y, m, d); mirrors datetime->epoch.
+// days since the unix epoch for a civil (y, m, d); mirrors datetime->epoch
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -93,10 +93,10 @@ bool iso_epoch_seconds(const std::string& s, long long& out) {
 }
 
 // claim rewards for every cleared, in-window mission (optionally filtered by id or category),
-// advancing multi-stage missions to their next stage.
+// advancing multi-stage missions to their next stage
 void receive_missions(const httplib::Request& req, httplib::Response& res,
-                      std::optional<int64_t> mission_id = std::nullopt,
-                      std::optional<int64_t> category = std::nullopt) {
+                      std::optional<long long> mission_id = std::nullopt,
+                      std::optional<long long> category = std::nullopt) {
     long long now = static_cast<long long>(std::time(nullptr));
 
     // start-inclusive availability (end=true -> end-exclusive); a falsy date reads as no restriction
@@ -115,10 +115,10 @@ void receive_missions(const httplib::Request& req, httplib::Response& res,
         ojson rewards = ojson::array();
         for (rjson& row : s.rows("Mission")) {
             const ojson* m =
-                game_state::master("mission_master", row.at("missionMasterId").get<int64_t>());
+                game_state::master("mission_master", row.at("missionMasterId").get<long long>());
             if (m == nullptr ||
-                (mission_id.has_value() && m->at("id_").get<int64_t>() != *mission_id) ||
-                (category.has_value() && m->at("mission_category").get<int64_t>() != *category) ||
+                (mission_id.has_value() && m->at("id_").get<long long>() != *mission_id) ||
+                (category.has_value() && m->at("mission_category").get<long long>() != *category) ||
                 row.at("isRewardReceived").get<bool>() || !row.at("isCleared").get<bool>() ||
                 !available(m, "start_date", false) || !available(m, "end_date", true))
                 continue;
@@ -127,38 +127,38 @@ void receive_missions(const httplib::Request& req, httplib::Response& res,
             if (stages_arr.is_array())
                 for (const ojson& st : stages_arr) stages.push_back(&st);
             std::stable_sort(stages.begin(), stages.end(), [](const ojson* a, const ojson* b) {
-                return a->at("mission_stage_order").get<int64_t>() <
-                       b->at("mission_stage_order").get<int64_t>();
+                return a->at("mission_stage_order").get<long long>() <
+                       b->at("mission_stage_order").get<long long>();
             });
-            int64_t current = row.at("currentMissionStageMasterId").get<int64_t>();
+            long long current = row.at("currentMissionStageMasterId").get<long long>();
             const ojson* stage = nullptr;
             for (const ojson* x : stages)
-                if (x->at("id_").get<int64_t>() == current) {
+                if (x->at("id_").get<long long>() == current) {
                     stage = x;
                     break;
                 }
-            int64_t count = row.at("missionCurrentCount").get<int64_t>();
-            if (stage == nullptr || count < stage->at("stage_goal_value").get<int64_t>() ||
+            long long count = row.at("missionCurrentCount").get<long long>();
+            if (stage == nullptr || count < stage->at("stage_goal_value").get<long long>() ||
                 !available(stage, "start_date", false))
                 continue;
             const ojson& stage_rewards = stage->at("rewards");
             if (stage_rewards.is_array())
                 for (const ojson& r : stage_rewards)
-                    rewards.push_back(ojson::array({r.at("thing_type").get<int64_t>(),
-                                                    r.at("thing_id").get<int64_t>(),
-                                                    r.at("thing_quantity").get<int64_t>()}));
-            int64_t stage_order = stage->at("mission_stage_order").get<int64_t>();
+                    rewards.push_back(ojson::array({r.at("thing_type").get<long long>(),
+                                                    r.at("thing_id").get<long long>(),
+                                                    r.at("thing_quantity").get<long long>()}));
+            long long stage_order = stage->at("mission_stage_order").get<long long>();
             const ojson* following = nullptr;
             for (const ojson* x : stages)
-                if (x->at("mission_stage_order").get<int64_t>() > stage_order) {
+                if (x->at("mission_stage_order").get<long long>() > stage_order) {
                     following = x;
                     break;
                 }
             if (following != nullptr) {
                 s.update(
                     "Mission", &row,
-                    rjson{{"currentMissionStageMasterId", following->at("id_").get<int64_t>()},
-                          {"isCleared", count >= following->at("stage_goal_value").get<int64_t>()},
+                    rjson{{"currentMissionStageMasterId", following->at("id_").get<long long>()},
+                          {"isCleared", count >= following->at("stage_goal_value").get<long long>()},
                           {"isRewardReceived", false}});
             } else {
                 s.update("Mission", &row, rjson{{"isRewardReceived", true}});

@@ -2,9 +2,9 @@
 
 namespace db::account {
 
-ExecutableQuery create_account(int64_t user_id, const std::string& credential,
-                               const std::string& platform, int64_t registered_at,
-                               int64_t last_login_at) {
+ExecutableQuery create_account(long long user_id, const std::string& credential,
+                               const std::string& platform, long long registered_at,
+                               long long last_login_at) {
     return ExecutableQuery(
         "INSERT INTO \"accounts\" "
         "(\"userId\", \"credential\", \"platform\", \"registeredAt\", \"lastLoginAt\") "
@@ -17,7 +17,7 @@ ExecutableQuery create_account(int64_t user_id, const std::string& credential,
         last_login_at);
 }
 
-ExecutableQuery add_hash_user_id(const std::string& hash_user_id, int64_t user_id) {
+ExecutableQuery add_hash_user_id(const std::string& hash_user_id, long long user_id) {
     return ExecutableQuery(
         "INSERT INTO \"hash_user_id\" (\"hashUserId\", \"userId\") VALUES ($1, $2) "
         "ON CONFLICT (\"hashUserId\") DO NOTHING",
@@ -25,14 +25,14 @@ ExecutableQuery add_hash_user_id(const std::string& hash_user_id, int64_t user_i
         user_id);
 }
 
-ExecutableQuery update_account_token(int64_t user_id, const std::string& api_token) {
+ExecutableQuery update_account_token(long long user_id, const std::string& api_token) {
     return ExecutableQuery(
         "UPDATE \"accounts\" SET \"apiToken\" = $1 WHERE \"userId\" = $2",
         api_token,
         user_id);
 }
 
-ExecutableQuery update_last_login(int64_t user_id, int64_t last_login_at) {
+ExecutableQuery update_last_login(long long user_id, long long last_login_at) {
     return ExecutableQuery(
         "UPDATE \"accounts\" SET \"lastLoginAt\" = $1 WHERE \"userId\" = $2",
         last_login_at,

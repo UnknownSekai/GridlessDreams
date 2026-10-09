@@ -19,7 +19,7 @@ namespace wire {
 namespace {
 
 using mtype = msgpack::type::object_type;
-using tsval = std::pair<int64_t, uint32_t>;
+using tsval = std::pair<long long, uint32_t>;
 
 bool is_int_base(const char* b) {
     static const char* const ints[] = {"byte", "sbyte", "short",  "ushort", "int",
@@ -29,26 +29,26 @@ bool is_int_base(const char* b) {
     return false;
 }
 
-int64_t floor_div(int64_t a, int64_t b) {
-    int64_t q = a / b, r = a % b;
+long long floor_div(long long a, long long b) {
+    long long q = a / b, r = a % b;
     if (r != 0 && ((r < 0) != (b < 0))) --q;
     return q;
 }
 
-// Howard Hinnant's civil<->days algorithms (days relative to 1970-01-01).
-int64_t days_from_civil(int y, unsigned m, unsigned d) {
+// Howard Hinnant's civil<->days algorithms (days relative to 1970-01-01)
+long long days_from_civil(int y, unsigned m, unsigned d) {
     y -= m <= 2;
-    const int64_t era = (y >= 0 ? y : y - 399) / 400;
+    const long long era = (y >= 0 ? y : y - 399) / 400;
     const unsigned yoe = static_cast<unsigned>(y - era * 400);
     const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
     const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    return era * 146097 + static_cast<int64_t>(doe) - 719468;
+    return era * 146097 + static_cast<long long>(doe) - 719468;
 }
 
 struct Ymd { int y; unsigned m; unsigned d; };
-Ymd civil_from_days(int64_t z) {
+Ymd civil_from_days(long long z) {
     z += 719468;
-    const int64_t era = (z >= 0 ? z : z - 146096) / 146097;
+    const long long era = (z >= 0 ? z : z - 146096) / 146097;
     const unsigned doe = static_cast<unsigned>(z - era * 146097);
     const unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
     const int y = static_cast<int>(yoe) + static_cast<int>(era * 400);
@@ -77,8 +77,8 @@ uint64_t load_be64(const unsigned char* p) {
     return v;
 }
 
-int64_t obj_as_int64(const msgpack::object& o) {
-    if (o.type == mtype::POSITIVE_INTEGER) return static_cast<int64_t>(o.via.u64);
+long long obj_as_int64(const msgpack::object& o) {
+    if (o.type == mtype::POSITIVE_INTEGER) return static_cast<long long>(o.via.u64);
     if (o.type == mtype::NEGATIVE_INTEGER) return o.via.i64;
     return 0;
 }
@@ -90,7 +90,7 @@ double to_double(const json& v) {
 }
 
 // --- Timestamp ext(-1), byte-identical to msgpack.Timestamp.to_bytes ---
-void pack_timestamp(msgpack::packer<msgpack::sbuffer>& pk, int64_t secs, uint32_t nanos) {
+void pack_timestamp(msgpack::packer<msgpack::sbuffer>& pk, long long secs, uint32_t nanos) {
     if (secs >= 0 && secs < (1LL << 34)) {
         uint64_t data64 = (static_cast<uint64_t>(nanos) << 34) | static_cast<uint64_t>(secs);
         if ((data64 & 0xFFFFFFFF00000000ULL) == 0) {
@@ -116,13 +116,13 @@ void pack_timestamp(msgpack::packer<msgpack::sbuffer>& pk, int64_t secs, uint32_
 tsval decode_timestamp(const msgpack::object& o) {
     const unsigned char* d = reinterpret_cast<const unsigned char*>(o.via.ext.data());
     uint32_t sz = o.via.ext.size;
-    if (sz == 4) return {static_cast<int64_t>(load_be32(d)), 0u};
+    if (sz == 4) return {static_cast<long long>(load_be32(d)), 0u};
     if (sz == 8) {
         uint64_t data64 = load_be64(d);
-        return {static_cast<int64_t>(data64 & 0x3FFFFFFFFULL), static_cast<uint32_t>(data64 >> 34)};
+        return {static_cast<long long>(data64 & 0x3FFFFFFFFULL), static_cast<uint32_t>(data64 >> 34)};
     }
     uint32_t nanos = load_be32(d);
-    return {static_cast<int64_t>(load_be64(d + 4)), nanos};
+    return {static_cast<long long>(load_be64(d + 4)), nanos};
 }
 
 tsval parse_iso_string(const std::string& s) {
@@ -138,7 +138,7 @@ tsval parse_iso_string(const std::string& s) {
     if (i < n && s[i] == '-') ++i;
     unsigned day = static_cast<unsigned>(rd(2));
     int hour = 0, minute = 0, second = 0;
-    int64_t micro = 0, tz_off = 0;
+    long long micro = 0, tz_off = 0;
     if (i < n) {
         ++i;  // date/time separator (T or space)
         hour = rd(2);
@@ -151,7 +151,7 @@ tsval parse_iso_string(const std::string& s) {
         if (i < n && (s[i] == '.' || s[i] == ',')) {
             ++i;
             int digits = 0;
-            int64_t frac = 0;
+            long long frac = 0;
             while (i < n && s[i] >= '0' && s[i] <= '9') {
                 if (digits < 6) {
                     frac = frac * 10 + (s[i] - '0');
@@ -187,11 +187,11 @@ tsval parse_iso_string(const std::string& s) {
             }
         }
     }
-    int64_t days = days_from_civil(year, month, day);
-    int64_t total_sec = days * 86400LL + hour * 3600 + minute * 60 + second - tz_off;
-    int64_t total_us = total_sec * 1000000LL + micro;
-    int64_t secs = floor_div(total_us, 1000000LL);
-    int64_t rem = total_us - secs * 1000000LL;
+    long long days = days_from_civil(year, month, day);
+    long long total_sec = days * 86400LL + hour * 3600 + minute * 60 + second - tz_off;
+    long long total_us = total_sec * 1000000LL + micro;
+    long long secs = floor_div(total_us, 1000000LL);
+    long long rem = total_us - secs * 1000000LL;
     return {secs, static_cast<uint32_t>(rem * 1000)};
 }
 
@@ -202,18 +202,18 @@ tsval parse_iso(const json& v) {
         return parse_iso_string(s);
     }
     if (v.is_number_integer() || v.is_number_unsigned()) {
-        int64_t us = v.get<int64_t>();
-        int64_t secs = floor_div(us, 1000000LL);
-        int64_t rem = us - secs * 1000000LL;
+        long long us = v.get<long long>();
+        long long secs = floor_div(us, 1000000LL);
+        long long rem = us - secs * 1000000LL;
         return {secs, static_cast<uint32_t>(rem * 1000)};
     }
     return {DATETIME_MIN_SECONDS, 0u};
 }
 
-std::string ts_to_iso(int64_t secs, uint32_t nanos) {
+std::string ts_to_iso(long long secs, uint32_t nanos) {
     long long micros = static_cast<long long>(nanos / 1000);
-    int64_t days = floor_div(secs, 86400LL);
-    int64_t sod = secs - days * 86400LL;
+    long long days = floor_div(secs, 86400LL);
+    long long sod = secs - days * 86400LL;
     int h = static_cast<int>(sod / 3600);
     int mn = static_cast<int>((sod % 3600) / 60);
     int sc = static_cast<int>(sod % 60);
@@ -233,12 +233,12 @@ void pack_str(msgpack::packer<msgpack::sbuffer>& pk, const std::string& s) {
     pk.pack_str_body(s.data(), static_cast<uint32_t>(s.size()));
 }
 
-// Non-negative -> unsigned minimal width, negative -> signed; matches Python packb exactly.
+// non-negative -> unsigned minimal width, negative -> signed; matches Python packb exactly
 void pack_json_int(msgpack::packer<msgpack::sbuffer>& pk, const json& v) {
     if (v.is_number_unsigned()) {
         pk.pack(v.get<uint64_t>());
     } else if (v.is_number_integer()) {
-        int64_t x = v.get<int64_t>();
+        long long x = v.get<long long>();
         if (x >= 0)
             pk.pack(static_cast<uint64_t>(x));
         else
@@ -246,9 +246,9 @@ void pack_json_int(msgpack::packer<msgpack::sbuffer>& pk, const json& v) {
     } else if (v.is_number_float()) {
         double d = v.get<double>();
         if (d >= 0)
-            pk.pack(static_cast<uint64_t>(static_cast<int64_t>(d)));
+            pk.pack(static_cast<uint64_t>(static_cast<long long>(d)));
         else
-            pk.pack(static_cast<int64_t>(d));
+            pk.pack(static_cast<long long>(d));
     } else if (v.is_boolean()) {
         pk.pack(static_cast<uint64_t>(v.get<bool>() ? 1 : 0));
     } else {
@@ -256,7 +256,7 @@ void pack_json_int(msgpack::packer<msgpack::sbuffer>& pk, const json& v) {
     }
 }
 
-// Dictionary<>/unknown passthrough: object->map (str keys), array->array, scalar as-is.
+// Dictionary<>/unknown passthrough: object->map (str keys), array->array, scalar as-is
 void encode_passthrough(msgpack::packer<msgpack::sbuffer>& pk, const json& v) {
     switch (v.type()) {
         case json::value_t::null:
@@ -301,7 +301,7 @@ void encode_passthrough(msgpack::packer<msgpack::sbuffer>& pk, const json& v) {
 }
 
 // default(T) for non-nullable null/missing fields; mirrors helpers.msgpack._zero EXACTLY,
-// including its case-sensitive sets ("Decimal"/"TimeSpan" fall through to nil).
+// including its case-sensitive sets ("Decimal"/"TimeSpan" fall through to nil)
 void pack_zero(msgpack::packer<msgpack::sbuffer>& pk, const FieldSpec& f) {
     if (std::strcmp(f.kind, "enum") == 0) {
         pk.pack(static_cast<uint64_t>(0));
@@ -331,9 +331,9 @@ const char* dict_value_model(const char* fn) {
     return nullptr;
 }
 
-// v guaranteed non-null; encodes one scalar/model value per FieldSpec.
+// v guaranteed non-null; encodes one scalar/model value per FieldSpec
 void encode_one(msgpack::packer<msgpack::sbuffer>& pk, const FieldSpec& f, const json& v) {
-    // a json binary value (e.g. a byte[] pre-converted by user_data) is a MessagePack bin.
+    // a json binary value (e.g. a byte[] pre-converted by user_data) is a MessagePack bin
     if (v.is_binary()) {
         const auto& b = v.get_binary();
         pk.pack_bin(static_cast<uint32_t>(b.size()));
@@ -341,7 +341,7 @@ void encode_one(msgpack::packer<msgpack::sbuffer>& pk, const FieldSpec& f, const
         return;
     }
     if (std::strcmp(f.kind, "model") == 0) {
-        // Python to_wire maps a dict before the KEYS lookup, so a Dictionary field is a msgpack map.
+        // Python to_wire maps a dict before the KEYS lookup, so a Dictionary field is a msgpack map
         if (std::strcmp(f.base, "Dictionary") == 0 && v.is_object()) {
             encode_dictionary(pk, v, dict_value_model(f.fn));
             return;
@@ -545,7 +545,7 @@ void pack_union_list(msgpack::packer<msgpack::sbuffer>& pk, const json& list) {
 
 // a json object key that is a canonical signed decimal -> int. json keys are strings,
 // but C# Dictionary<int,V> (actors/time_events/scores) needs integer msgpack keys.
-bool parse_int_key(const std::string& s, int64_t& out) {
+bool parse_int_key(const std::string& s, long long& out) {
     size_t i = 0;
     bool neg = s.size() > 1 && s[0] == '-';
     if (neg) i = 1;
@@ -556,17 +556,17 @@ bool parse_int_key(const std::string& s, int64_t& out) {
         if (s[i] < '0' || s[i] > '9') return false;
         v = v * 10 + static_cast<uint64_t>(s[i] - '0');
     }
-    out = neg ? -static_cast<int64_t>(v) : static_cast<int64_t>(v);
+    out = neg ? -static_cast<long long>(v) : static_cast<long long>(v);
     return true;
 }
 
 // Python to_wire hits `isinstance(obj, dict)` before the KEYS lookup, so a Dictionary
-// field serializes as a msgpack map, not a model array. Each value is wired as value_model
+// field serializes as a msgpack map, not a model array. each value is wired as value_model
 // (Python recovers that from the value's runtime class; see dict_value_model).
 void encode_dictionary(msgpack::packer<msgpack::sbuffer>& pk, const json& value, const char* value_model) {
     pk.pack_map(static_cast<uint32_t>(value.size()));
     for (auto it = value.begin(); it != value.end(); ++it) {
-        int64_t ik;
+        long long ik;
         if (parse_int_key(it.key(), ik)) {
             if (ik >= 0)
                 pk.pack(static_cast<uint64_t>(ik));
@@ -604,7 +604,7 @@ void to_wire(msgpack::packer<msgpack::sbuffer>& pk, const char* name, const json
         for (const auto& x : value) to_wire(pk, name, x);
         return;
     }
-    // A Dictionary reached generically (nested value) is a map, not an empty model array.
+    // a Dictionary reached generically (nested value) is a map, not an empty model array
     if (name && std::strcmp(name, "Dictionary") == 0 && value.is_object()) {
         encode_dictionary(pk, value, nullptr);
         return;
@@ -648,7 +648,7 @@ msgpack::object_handle unpack_raw(const std::string& body) {
         uint32_t esz = o.via.ext.size;
         size_t off = 0;
         msgpack::object_handle lh = msgpack::unpack(ed, esz, off);
-        int64_t ulen = obj_as_int64(lh.get());
+        long long ulen = obj_as_int64(lh.get());
         std::string dst(static_cast<size_t>(ulen), '\0');
         if (ulen > 0) {
             int r = LZ4_decompress_safe(ed + off, &dst[0], static_cast<int>(esz - off),
@@ -669,7 +669,7 @@ msgpack::object_handle unpack_raw(const std::string& body) {
             std::vector<msgpack::object_handle> hs;
             size_t off = 0;
             while (off < lsz) hs.push_back(msgpack::unpack(ld, lsz, off));
-            std::vector<int64_t> lengths;
+            std::vector<long long> lengths;
             if (hs.size() == 1 && hs[0].get().type == mtype::ARRAY) {
                 const auto& a = hs[0].get().via.array;
                 for (uint32_t i = 0; i < a.size; ++i) lengths.push_back(obj_as_int64(a.ptr[i]));
@@ -680,7 +680,7 @@ msgpack::object_handle unpack_raw(const std::string& body) {
             size_t cnt = std::min(static_cast<size_t>(o.via.array.size - 1), lengths.size());
             for (size_t i = 0; i < cnt; ++i) {
                 const msgpack::object& blk = o.via.array.ptr[i + 1];
-                int64_t ulen = lengths[i];
+                long long ulen = lengths[i];
                 if (ulen <= 0) continue;
                 std::string dst(static_cast<size_t>(ulen), '\0');
                 int r = LZ4_decompress_safe(blk.via.bin.ptr, &dst[0],

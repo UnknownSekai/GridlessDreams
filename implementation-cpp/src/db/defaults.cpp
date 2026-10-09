@@ -18,7 +18,7 @@
 #include "user_hash.h"
 #include "wire.h"
 
-// Seed a brand-new account's default data (ports db/defaults.py). default_account.json holds a
+// seed a brand-new account's default data (ports db/defaults.py). default_account.json holds a
 // fresh account's initial entities as camelCase DB rows with no identity baked in; each row is
 // replayed through the matching db::user upsert_* builder for the new userId.
 
@@ -26,7 +26,7 @@ namespace db::defaults {
 
 namespace {
 
-using UpsertFn = ExecutableQuery (*)(std::int64_t, const wire::json&);
+using UpsertFn = ExecutableQuery (*)(long long, const wire::json&);
 
 // entities that are 1:1 with the account -- their id is the userId
 const std::unordered_set<std::string> ACCOUNT_ENTITIES = {
@@ -34,9 +34,9 @@ const std::unordered_set<std::string> ACCOUNT_ENTITIES = {
     "UserBonus",  "Currency",    "Restriction",           "Notification",
 };
 
-constexpr std::int64_t INBOX_TTL_MICROS = 30LL * 86400 * 1000000;  // claimable for 30 days
+constexpr long long INBOX_TTL_MICROS = 30LL * 86400 * 1000000;  // claimable for 30 days
 
-// getattr(db_user, f"upsert_{table}", None): the whole db.user upsert namespace keyed by table.
+// getattr(db_user, f"upsert_{table}", None): the whole db.user upsert namespace keyed by table
 const std::unordered_map<std::string, UpsertFn> UPSERTS = {
     {"user", &user::upsert_user},
     {"user_profile", &user::upsert_user_profile},
@@ -225,14 +225,14 @@ const std::unordered_map<std::string, UpsertFn> UPSERTS = {
     {"event_camp", &user::upsert_event_camp},
 };
 
-// initial entities of a fresh account; loaded once, mirroring the module-level _SEED.
+// initial entities of a fresh account; loaded once, mirroring the module-level _SEED
 const wire::json& seed() {
     static const wire::json data =
         wire::json::parse(platform::read_file("db/default_account.json"));
     return data;
 }
 
-// re.sub(r"(?<!^)(?=[A-Z])", "_", type_name).lower(): insert "_" before each non-leading capital.
+// re.sub(r"(?<!^)(?=[A-Z])", "_", type_name).lower(): insert "_" before each non-leading capital
 std::string table_name(const std::string& type_name) {
     std::string out;
     for (std::size_t i = 0; i < type_name.size(); ++i) {
@@ -259,7 +259,7 @@ std::string invitation_code() {
     return out;
 }
 
-std::int64_t now_micros() {
+long long now_micros() {
     return std::chrono::duration_cast<std::chrono::microseconds>(
                std::chrono::system_clock::now().time_since_epoch())
         .count();
@@ -268,7 +268,7 @@ std::int64_t now_micros() {
 }  // namespace
 
 void create_default_user_data(long long user_id, const std::string& name) {
-    const std::int64_t now = now_micros();  // epoch microseconds
+    const long long now = now_micros();  // epoch microseconds
     for (auto it = seed().begin(); it != seed().end(); ++it) {
         const std::string& type_name = it.key();
         const wire::json& rows = it.value();
@@ -289,7 +289,7 @@ void create_default_user_data(long long user_id, const std::string& name) {
             if (type_name == "UserProfile") row["name"] = name;
             if (type_name == "FriendInvitation") row["invitationCode"] = invitation_code();
             if (type_name == "MissionPass") {
-                std::uniform_int_distribution<std::int64_t> pick(1000000, 999999999);
+                std::uniform_int_distribution<long long> pick(1000000, 999999999);
                 row["id"] = pick(rng());
             }
             if (type_name == "DailyLimit") row["lastRefreshedAt"] = now;
@@ -308,7 +308,7 @@ void create_default_user_data(long long user_id, const std::string& name) {
 
     if (config::get_bool("grant_music_tickets"))
         // increment_item_stock is a data-modifying CTE: in the SQLite port it executes itself
-        // (returning the command tag), so it is not wrapped in db::execute.
+        // (returning the command tag), so it is not wrapped in db::execute
         user::increment_item_stock(user_id, shops::MUSIC_UNLOCK_ITEM_ID, 100000);
 }
 

@@ -17,7 +17,7 @@ const std::unordered_map<char, std::string>& sboxes() {
     return m;
 }
 
-// {char -> index} reverse of each S-box (built from sboxes()).
+// {char -> index} reverse of each S-box (built from sboxes())
 const std::unordered_map<char, std::unordered_map<char, char>>& sboxes_rev() {
     static const std::unordered_map<char, std::unordered_map<char, char>> r = [] {
         std::unordered_map<char, std::unordered_map<char, char>> out;
@@ -45,7 +45,7 @@ std::string base9(long long x) {
     return base9(x / 9) + static_cast<char>('0' + (x % 9));
 }
 
-// Python s[start:] semantics (negative/out-of-range clamping included).
+// Python s[start:] semantics (negative/out-of-range clamping included)
 std::string slice_from(const std::string& s, long long start) {
     long long n = static_cast<long long>(s.size());
     if (start < 0) { start += n; if (start < 0) start = 0; }
@@ -53,7 +53,7 @@ std::string slice_from(const std::string& s, long long start) {
     return s.substr(static_cast<size_t>(start));
 }
 
-// Python s[:end] semantics.
+// Python s[:end] semantics
 std::string slice_to(const std::string& s, long long end) {
     long long n = static_cast<long long>(s.size());
     if (end < 0) { end += n; if (end < 0) end = 0; }

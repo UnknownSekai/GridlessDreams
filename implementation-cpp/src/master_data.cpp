@@ -28,8 +28,8 @@ std::mutex g_blob_mutex;
 std::string g_blob;
 bool g_blob_built = false;
 
-// The service ended 2026-09-29; content meant to run "until the end" carries one of these two
-// boundary end dates (23:00 JST / 14:00 JST daily-reset reps). We lift them to the game's
+// the service ended 2026-09-29; content meant to run "until the end" carries one of these two
+// boundary end dates (23:00 JST / 14:00 JST daily-reset reps). we lift them to the game's
 // permanent sentinel so content stays available.
 constexpr long long SERVICE_END_A = 1790658000LL;  // 2026-09-29T05:00:00Z
 constexpr long long SERVICE_END_B = 1790690400LL;  // 2026-09-29T14:00:00Z
@@ -40,7 +40,7 @@ long long floor_div(long long a, long long b) {
     return q;
 }
 
-// Howard Hinnant's civil<->days algorithms (days relative to 1970-01-01).
+// Howard Hinnant's civil<->days algorithms (days relative to 1970-01-01)
 long long days_from_civil(long long y, unsigned m, unsigned d) {
     y -= (m <= 2);
     const long long era = (y >= 0 ? y : y - 399) / 400;
@@ -69,7 +69,7 @@ Ymd civil_from_days(long long z) {
 }
 
 // epoch seconds of an ISO-8601 string; mirrors datetime.fromisoformat (naive -> UTC, Z == +00:00).
-// Returns false for anything that is not a valid date(+time) so it can never match a boundary.
+// returns false for anything that is not a valid date(+time) so it can never match a boundary.
 bool iso_epoch_seconds(const std::string& s, long long& out) {
     size_t i = 0, n = s.size();
     auto read = [&](int len, int& v) -> bool {
@@ -143,8 +143,8 @@ const master_spec::ModelDefaults* find_defaults(const char* model) {
     return it == table.end() ? nullptr : it->second;
 }
 
-// Make a parsed JSON row pack byte-identically to the pydantic model: remap id->id_, inject the
-// non-zero enum defaults for omitted fields, and recurse into nested models.
+// make a parsed JSON row pack byte-identically to the pydantic model: remap id->id_, inject the
+// non-zero enum defaults for omitted fields, and recurse into nested models
 void normalize(const char* model, json& obj) {
     const wire::ModelSpec* m = wire::find_model(model);
     if (!m || !obj.is_object()) return;

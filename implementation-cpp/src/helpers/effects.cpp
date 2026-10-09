@@ -199,7 +199,7 @@ const std::vector<const json*>& circle_by_company(long long company) {
     return it == idx.end() ? kEmpty : it->second;
 }
 
-// EffectConditions (1..5) -> the actor attribute that must equal the condition value.
+// EffectConditions (1..5) -> the actor attribute that must equal the condition value
 const char* actor_cond_key(long long cond) {
     switch (cond) {
         case 1: return "character_base_master_id";
@@ -212,7 +212,7 @@ const char* actor_cond_key(long long cond) {
 }
 
 // a LeaderSense detail applies when it has no conditions, or when any one condition has all of its
-// listed categories on the member (a condition listing no category always matches).
+// listed categories on the member (a condition listing no category always matches)
 bool leader_condition_met(const json& detail, const std::set<long long>& member_cats) {
     const json& conds = opt_array(detail, "conditions");
     if (conds.empty()) return true;
@@ -446,7 +446,7 @@ std::vector<AppliedEffect> circle_effects(long long company,
     for (const json* cd : circle_by_company(company)) {
         if (jint(*cd, "level", 0) <= level) {
             const json* em = em_of(jint(*cd, "effect_master_id", 0));
-            // no dedicated EffectSourceTypes for circle support; capped as Other.
+            // no dedicated EffectSourceTypes for circle support; capped as Other
             if (em != nullptr) out.push_back({*em, jint(*cd, "level", 0), enums::EffectSourceTypes::Other});
         }
     }

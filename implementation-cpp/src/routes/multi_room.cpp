@@ -3,8 +3,8 @@
 #include "../headers.h"
 #include "../wire.h"
 
-// The Detail/Release/Resignation decorators carry a literal "?hashedMultiRoomId="
-// in the path, so (as in the Python) those routes never match a real request.
+// the Detail/Release/Resignation decorators carry a literal "?hashedMultiRoomId="
+// in the path, so (as in the Python) those routes never match a real request
 
 namespace routes {
 
@@ -17,17 +17,17 @@ void send(httplib::Response& res, const std::string& body) {
     for (const auto& h : headers::response_headers()) res.set_header(h.first, h.second);
 }
 
-// respond(Model()) -> empty result entity, no present.
+// respond(Model()) -> empty result entity, no present
 void respond_empty(httplib::Response& res, const char* result_name) {
     send(res, wire::common_response(result_name, json::object()));
 }
 
-// respond([Model()]) -> a list holding one default entity.
+// respond([Model()]) -> a list holding one default entity
 void respond_singleton(httplib::Response& res, const char* result_name) {
     send(res, wire::common_response(result_name, json::array({json::object()})));
 }
 
-// respond([]) -> a bare empty list.
+// respond([]) -> a bare empty list
 void respond_empty_list(httplib::Response& res) {
     send(res, wire::common_response("", json::array()));
 }

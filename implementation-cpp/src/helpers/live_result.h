@@ -3,12 +3,12 @@
 
 #include "wire.h"
 
-// Live-finish result computation for Lives/FinishAndValidate. Ports
-// helpers/live_result.py. Everything is derived from the hash-verified score
+// live-finish result computation for Lives/FinishAndValidate. ports
+// helpers/live_result.py. everything is derived from the hash-verified score
 // blocks: the client sends judges=null and score/max_combo/is_cleared as
 // 0/0/false, so every headline figure is the server's to recompute.
 //
-// Data flows as wire::json: a score block is an object keyed by the entity
+// data flows as wire::json: a score block is an object keyed by the entity
 // field names (score, life, timing_type, combo, ...); a payload is a
 // FinishLivePayload object whose *_score_blocks are null or arrays of blocks.
 
@@ -17,7 +17,7 @@ namespace live_result {
 // whether the blocks' own running combo ever strictly decreases
 bool _combo_broken(const wire::json& blocks);
 
-// Fail (not cleared) / AllPerfect / FullCombo / Clear, as a ClearLamps int
+// fail (not cleared) / AllPerfect / FullCombo / Clear, as a ClearLamps int
 int clear_lamp(bool is_cleared, const wire::json& base_score_blocks);
 
 // notes judged GOOD or below (GOOD / BAD / MISS / unjudged)

@@ -3,10 +3,10 @@
 #include <string>
 #include <utility>
 
-// Serve the local Addressables catalogs, bundles and encrypted notations.
-// Ports helpers/assets.py. Catalog .json.br (brotli) / .hash (SpookyHash-128,
+// serve the local Addressables catalogs, bundles and encrypted notations.
+// ports helpers/assets.py. catalog .json.br (brotli) / .hash (SpookyHash-128,
 // little-endian lowercase hex) are memoized; bundles/notations are read verbatim.
-// Each served body carries a Content-MD5 (base64 of md5) matching the official server.
+// each served body carries a Content-MD5 (base64 of md5) matching the official server.
 
 namespace assets {
 
@@ -25,9 +25,15 @@ std::optional<BodyMd5> bundle(const std::string& kind, const std::string& platfo
 std::string official_url(const std::string& kind, const std::string& platform, const std::string& version,
                          const std::string& rel_path);
 
-// a local encrypted notation/music_config .enc and its Content-MD5, or none if absent.
+// a local encrypted notation/music_config .enc and its Content-MD5, or none if absent
 std::optional<BodyMd5> notation(const std::string& music_id, const std::string& filename);
 
 std::string official_notation_url(const std::string& music_id, const std::string& filename);
+
+// a local static-content file (event/gacha banner textures) and its Content-MD5, or none.
+// served raw; fetched by the client from static_content_url (not the Addressables asset_url).
+std::optional<BodyMd5> static_content(const std::string& rel_path);
+
+std::string official_static_url(const std::string& rel_path);
 
 }  // namespace assets

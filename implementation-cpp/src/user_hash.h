@@ -2,8 +2,8 @@
 #include <optional>
 #include <string>
 
-// Reversible user-id obfuscation (base-9 + per-digit S-boxes + padding).
-// Ports helpers/user_hash.py. hash_id maps a userId to its public hashUserId
+// reversible user-id obfuscation (base-9 + per-digit S-boxes + padding).
+// ports helpers/user_hash.py. hash_id maps a userId to its public hashUserId
 // string; unhash_id reverses it (and re-verifies via hash_id).
 
 namespace user_hash {
