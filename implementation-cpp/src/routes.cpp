@@ -82,6 +82,11 @@ void setup(httplib::Server& svr) {
     // prepend the live/lesson/course overrides so they take precedence over the base
     // lives/lessons handlers (install() PREPENDS; cpp-httplib is first-match-wins)
     install_live_modes(svr);
+
+    // the /master-data/production/(.*) blob catch-all goes dead last so specific paths under it
+    // (the episodes scenes/*.bin route) match first -- mirrors app.py registering it after every
+    // include_router(). appended here, so it stays at the tail of the first-match-wins handler list
+    register_master_data_blob(svr);
 }
 
 }  // namespace routes

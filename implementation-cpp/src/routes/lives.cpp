@@ -6,6 +6,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -36,6 +37,7 @@ using db::user::create_active_live;
 using db::user::delete_active_lives;
 using db::user::get_active_live;
 using db::user::get_lives;
+using db::user::get_music_bookmarks;
 using db::user::get_sp_rates;
 using db::user::get_users;
 using db::user::next_live_id;
@@ -43,6 +45,7 @@ using db::user::update_live_result;
 using db::user::update_player_rate;
 using db::user::update_sp_rate_point;
 using db::user::upsert_live;
+using db::user::upsert_music_bookmark;
 using db::user::upsert_sp_rate;
 
 // LiveMaster -> its MusicMaster. the two id->row maps are built once on first use
@@ -135,10 +138,14 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     long long before_lamp =
         existing != nullptr ? existing->at("clearLamp").get<long long>() : enums::ClearLamps::None_;
     double prev_rate = existing != nullptr ? existing->at("achievementRate").get<double>() : 0.0;
-    bool is_high_score = this_rate > prev_rate;
+    // auto-play clears don't set records: the client auto-hits every note PERFECT*, which would
+    // otherwise bank a 101% all perfect. an auto run still counts as a play and still drops
+    // rewards, but the saved lamp/rate/grade (and the result screen) keep the prior best
+    bool auto_play = active.has_value() ? active->value("isAutoPlay", false) : false;
+    bool is_high_score = this_rate > prev_rate && !auto_play;
 
-    long long best_lamp = std::max<long long>(before_lamp, new_lamp);  // worst..best int order
-    double best_rate = std::max(prev_rate, this_rate);
+    long long best_lamp = auto_play ? before_lamp : std::max<long long>(before_lamp, new_lamp);  // worst..best int order
+    double best_rate = auto_play ? prev_rate : std::max(prev_rate, this_rate);
     long long best_grade = live_result::rate_grade(best_rate);
     long long times = (existing != nullptr ? existing->at("timesCompleted").get<long long>() : 0) + 1;
     // notation_rate is the chart's (best) live rate: level + interpolated achievement bonus
@@ -296,10 +303,15 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
         for (const json& e : extra) present.push_back(e);
     }
 
+    // an auto-play run is reported as no improvement (see the record cap above), so the result
+    // panel shows the saved best rather than a fresh all perfect
+    long long result_lamp = auto_play ? best_lamp : new_lamp;
+    double result_rate = auto_play ? best_rate : this_rate;
+
     json rate_result = json::object();
     json ach_result = json::object();
     ach_result["best_ever"] = round4(prev_rate);  // best_ever = past best only
-    ach_result["this_time"] = round4(this_rate);
+    ach_result["this_time"] = round4(result_rate);
     rate_result["achievement_rate_result"] = ach_result;
     rate_result["live_rate_result"] = live_rate_result;
     rate_result["total_rate_before"] = total_before;
@@ -315,9 +327,9 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     player_rank_point_result["stamina_before"] = (*user).at("currentStamina");
 
     json result = json::object();
-    result["clear_lamp"] = new_lamp;
+    result["clear_lamp"] = result_lamp;
     result["before_clear_lamp"] = before_lamp;
-    result["rate_grade"] = live_result::rate_grade(this_rate);
+    result["rate_grade"] = live_result::rate_grade(result_rate);
     result["is_high_score"] = is_high_score;
     result["achievement_rate_average"] = 0.0;  // TODO: add global average acc
     result["rate_result"] = rate_result;
@@ -370,10 +382,71 @@ void lives_start(const httplib::Request& req, httplib::Response& res) {
         unit = built.first;
         long long live_id = built.second;
         db::execute(create_active_live(*user_id, live_id, live_master_id, party_id,
-                                       live_setting_master_id, stamina_spent));
+                                       live_setting_master_id, stamina_spent,
+                                       payload.value("is_auto_play", false)));
         if (user.has_value()) present.push_back(user_data::data_object("User", *user));
     }
     pipeline::respond(res, "LiveUnit", unit, json::array(), present);
+}
+
+// /api/Lives/Music/EditBookmark
+void lives_edit_bookmark(const httplib::Request& req, httplib::Response& res) {
+    std::optional<long long> user_id = user_data::current_user_id(req);
+    json payload = pipeline::read_request(req, "EditBookmarkPayload");
+    long long music_id = payload.is_null() ? 0 : pint(payload, "music_master_id");
+    if (!user_id.has_value() || payload.is_null() || music_id <= 0) {
+        pipeline::respond(res, "BooleanResult", json::object());
+        return;
+    }
+    long long flag = pint(payload, "bookmark_flag");
+    // MusicMaster ids, filled once (mirrors the cache.music_master membership test)
+    static const std::unordered_set<long long> music_ids = [] {
+        std::unordered_set<long long> s;
+        for (const json& row : master_data::table("MusicMaster"))
+            s.insert(row.at("id_").get<long long>());
+        return s;
+    }();
+    // the flag is a 3-bit mask (Bookmark1/2/4); the enum admits arbitrary ints, so reject
+    // anything outside those bits and any unknown song
+    if (flag < 0 || (flag & ~7LL) || music_ids.find(music_id) == music_ids.end()) {
+        pipeline::respond(res, "BooleanResult", json::object());
+        return;
+    }
+    bool existed = false;
+    {
+        // music_bookmark has no unique (userId, musicMasterId) key, so replace the row inside one
+        // transaction -- the db mutex globally orders writes, standing in for the Postgres per-pair
+        // advisory lock, so repeated taps can't leave duplicate rows. flag 0 just clears it.
+        auto tx = db::transaction();
+        for (const db::json& r : db::fetch(get_music_bookmarks(*user_id))) {
+            if (r.at("musicMasterId").get<long long>() == music_id) {
+                existed = true;
+                break;
+            }
+        }
+        db::execute(db::ExecutableQuery(
+            "DELETE FROM \"music_bookmark\" WHERE \"userId\" = $1 AND \"musicMasterId\" = $2",
+            *user_id, music_id));
+        if (flag) {
+            json row = json::object();
+            row["musicMasterId"] = music_id;
+            row["musicBookmarkFlag"] = flag;
+            db::execute(upsert_music_bookmark(*user_id, row));
+        }
+        tx.commit();
+    }
+    json result = json::object();
+    result["is_success"] = true;
+    if (!existed && !flag) {  // nothing was there and nothing to set
+        pipeline::respond(res, "BooleanResult", result);
+        return;
+    }
+    json bookmark = json::object();
+    bookmark["userId"] = *user_id;
+    bookmark["musicMasterId"] = music_id;
+    bookmark["musicBookmarkFlag"] = flag;
+    pipeline::respond(res, "BooleanResult", result, json::array(),
+                      json::array({user_data::data_object("MusicBookmark", bookmark)}));
 }
 
 void register_lives(httplib::Server& svr) {
@@ -401,11 +474,7 @@ void register_lives(httplib::Server& svr) {
              });
 
     // /api/Lives/Music/EditBookmark
-    svr.Post("/api/Lives/Music/EditBookmark",
-             [](const httplib::Request& req, httplib::Response& res) {
-                 pipeline::read_request(req, "EditBookmarkPayload");
-                 pipeline::respond(res, "BooleanResult", json::object());
-             });
+    svr.Post("/api/Lives/Music/EditBookmark", lives_edit_bookmark);
 
     // /api/Lives/FinishAndValidate
     svr.Post("/api/Lives/FinishAndValidate", lives_finish_and_validate);

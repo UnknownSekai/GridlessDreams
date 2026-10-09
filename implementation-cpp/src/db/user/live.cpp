@@ -64,17 +64,19 @@ ExecutableQuery create_active_live(
     long long live_master_id,
     long long party_id,
     long long live_setting_master_id,
-    bool stamina_spent) {
+    bool stamina_spent,
+    bool is_auto_play) {
     return ExecutableQuery(
         "INSERT INTO \"active_live\" "
-        "(\"userId\", \"id\", \"liveMasterId\", \"partyId\", \"liveSettingMasterId\", \"staminaSpent\") "
-        "VALUES ($1, $2, $3, $4, $5, $6)",
+        "(\"userId\", \"id\", \"liveMasterId\", \"partyId\", \"liveSettingMasterId\", \"staminaSpent\", \"isAutoPlay\") "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7)",
         user_id,
         live_id,
         live_master_id,
         party_id,
         live_setting_master_id,
-        stamina_spent);
+        stamina_spent,
+        is_auto_play);
 }
 
 SelectQuery get_active_live(long long user_id) {

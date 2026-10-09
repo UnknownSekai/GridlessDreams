@@ -465,7 +465,7 @@ SelectQuery next_live_id();
 ExecutableQuery update_player_rate(long long user_id, double rate);
 ExecutableQuery update_music_releases(long long user_id, const std::vector<std::tuple<long long, bool, long long>>& changes);
 ExecutableQuery delete_active_lives(long long user_id);
-ExecutableQuery create_active_live(long long user_id, long long live_id, long long live_master_id, long long party_id, long long live_setting_master_id = 0, bool stamina_spent = false);
+ExecutableQuery create_active_live(long long user_id, long long live_id, long long live_master_id, long long party_id, long long live_setting_master_id = 0, bool stamina_spent = false, bool is_auto_play = false);
 SelectQuery get_active_live(long long user_id);
 ExecutableQuery update_live_result(long long user_id, long long live_master_id, long long times_completed, double achievement_rate, double notation_rate, long long clear_lamp, long long rate_grade);
 

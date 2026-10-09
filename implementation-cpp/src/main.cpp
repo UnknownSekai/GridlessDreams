@@ -37,6 +37,10 @@ static const char* const PRESERVATION_TABLES[] = {
     "CREATE TABLE IF NOT EXISTS preservation_course_run ("
     "\"userId\" bigint PRIMARY KEY REFERENCES accounts(\"userId\") ON DELETE CASCADE, "
     "data jsonb NOT NULL)",
+    // auto-play flag on the transient active-live row (db::user::create_active_live). the fresh
+    // schema already carries it; this adds it to a db from an older build. SQLite has no
+    // ADD COLUMN IF NOT EXISTS, so it throws once the column exists -- bring-up tolerates that
+    "ALTER TABLE active_live ADD COLUMN \"isAutoPlay\" BOOLEAN NOT NULL DEFAULT false",
 };
 
 static void mount_asset_portions() {
@@ -68,7 +72,15 @@ static void server_thread() {
     LOG("Initializing database...");
     std::string db_path = platform::get_writable_dir() + "/offline.db";
     if (db::init(db_path)) {
-        for (const char* sql : PRESERVATION_TABLES) db::execute(db::ExecutableQuery(sql));
+        // best-effort + idempotent: the isAutoPlay ALTER throws on a db that already has the
+        // column (no SQLite IF NOT EXISTS), which is expected, not fatal
+        for (const char* sql : PRESERVATION_TABLES) {
+            try {
+                db::execute(db::ExecutableQuery(sql));
+            } catch (const std::exception& e) {
+                LOG("Preservation statement skipped: %s", e.what());
+            }
+        }
         LOG("Database ready at %s", db_path.c_str());
     } else {
         // non-fatal: still serve assets/master data so the app boots and we can diagnose

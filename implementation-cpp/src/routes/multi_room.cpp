@@ -50,7 +50,9 @@ void register_multi_room(httplib::Server& svr) {
              [](const httplib::Request&, httplib::Response& res) { respond_empty(res, "MultiRoomDetailResult"); });
 
     svr.Get("/api/MultiRooms", [](const httplib::Request&, httplib::Response& res) {
-        respond_singleton(res, "MultiRoomInformationResult");
+        // we don't host rooms, so return an empty list rather than a placeholder room: the client
+        // rejects a placeholder as invalid (this is the request the level-10 unlock walkthrough makes)
+        respond_empty_list(res);
     });
 
     svr.Get("/api/MultiRoom/GetSearchMultiRooms",

@@ -205,7 +205,7 @@ static const char* const DDL[] = {
   "CREATE TABLE IF NOT EXISTS \"multi_room_basic\" (\"rowId\" INTEGER PRIMARY KEY AUTOINCREMENT, \"userId\" INTEGER NOT NULL, \"id\" INTEGER NOT NULL DEFAULT 0, \"ownerMultiRoomId\" TEXT, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
   "CREATE TABLE IF NOT EXISTS \"event_camp\" (\"rowId\" INTEGER PRIMARY KEY AUTOINCREMENT, \"userId\" INTEGER NOT NULL, \"id\" INTEGER NOT NULL DEFAULT 0, \"eventMasterId\" INTEGER NOT NULL DEFAULT 0, \"campType\" INTEGER NOT NULL DEFAULT 0, \"totalSupportPoint\" INTEGER NOT NULL DEFAULT 0, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
   "CREATE TABLE IF NOT EXISTS \"hash_user_id\" (\"hashUserId\" INTEGER PRIMARY KEY, \"userId\" INTEGER NOT NULL UNIQUE, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
-  "CREATE TABLE IF NOT EXISTS \"active_live\" (\"userId\" INTEGER PRIMARY KEY, \"id\" INTEGER NOT NULL, \"liveMasterId\" INTEGER NOT NULL DEFAULT 0, \"partyId\" INTEGER NOT NULL DEFAULT 0, \"liveSettingMasterId\" INTEGER NOT NULL DEFAULT 0, \"staminaSpent\" BOOLEAN NOT NULL DEFAULT false, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
+  "CREATE TABLE IF NOT EXISTS \"active_live\" (\"userId\" INTEGER PRIMARY KEY, \"id\" INTEGER NOT NULL, \"liveMasterId\" INTEGER NOT NULL DEFAULT 0, \"partyId\" INTEGER NOT NULL DEFAULT 0, \"liveSettingMasterId\" INTEGER NOT NULL DEFAULT 0, \"staminaSpent\" BOOLEAN NOT NULL DEFAULT false, \"isAutoPlay\" BOOLEAN NOT NULL DEFAULT false, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
   "CREATE TABLE IF NOT EXISTS \"gacha_history\" (\"rowId\" INTEGER PRIMARY KEY AUTOINCREMENT, \"userId\" INTEGER NOT NULL, \"cardType\" INTEGER NOT NULL DEFAULT 0, \"masterId\" INTEGER NOT NULL DEFAULT 0, \"createdAt\" INTEGER NOT NULL DEFAULT 0, FOREIGN KEY (\"userId\") REFERENCES \"accounts\"(\"userId\") ON DELETE CASCADE)",
   "CREATE INDEX IF NOT EXISTS \"user_userId\" ON \"user\" (\"userId\")",
   "CREATE INDEX IF NOT EXISTS \"user_profile_userId\" ON \"user_profile\" (\"userId\")",
@@ -989,7 +989,7 @@ static const ColEntry _c_hash_user_id[] = {
   {"hashUserId",TEXT}, {"userId",BIGINT}
 };
 static const ColEntry _c_active_live[] = {
-  {"userId",BIGINT}, {"id",BIGINT}, {"liveMasterId",BIGINT}, {"partyId",BIGINT}, {"liveSettingMasterId",BIGINT}, {"staminaSpent",BOOL}
+  {"userId",BIGINT}, {"id",BIGINT}, {"liveMasterId",BIGINT}, {"partyId",BIGINT}, {"liveSettingMasterId",BIGINT}, {"staminaSpent",BOOL}, {"isAutoPlay",BOOL}
 };
 static const ColEntry _c_gacha_history[] = {
   {"rowId",INT}, {"userId",BIGINT}, {"cardType",BIGINT}, {"masterId",BIGINT}, {"createdAt",BIGINT}
@@ -1196,7 +1196,7 @@ static const TableCols TABLE_COLS[] = {
   {"multi_room_basic", _c_multi_room_basic, 4},
   {"event_camp", _c_event_camp, 6},
   {"hash_user_id", _c_hash_user_id, 2},
-  {"active_live", _c_active_live, 6},
+  {"active_live", _c_active_live, 7},
   {"gacha_history", _c_gacha_history, 5},
   {"preservation_live_context", _c_preservation_live_context, 4},
   {"preservation_course_run", _c_preservation_course_run, 2},
@@ -2698,6 +2698,7 @@ static const FlatColEntry COL_TYPES[] = {
   {"active_live","partyId",BIGINT},
   {"active_live","liveSettingMasterId",BIGINT},
   {"active_live","staminaSpent",BOOL},
+  {"active_live","isAutoPlay",BOOL},
   {"gacha_history","rowId",INT},
   {"gacha_history","userId",BIGINT},
   {"gacha_history","cardType",BIGINT},
