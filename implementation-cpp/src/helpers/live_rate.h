@@ -17,6 +17,9 @@ double live_rate(int level, double rate);
 // a chart's live rate, or none if it has none (Olivier / long-version / unknown chart)
 std::optional<double> chart_live_rate(long long live_master_id, double rate);
 
+// sum of the top 30 already-computed chart live rates (0 contributes nothing)
+double total_of_live_rates(const std::vector<double>& rates);
+
 // sum of the top 30 chart live rates; pairs = (live_master_id, achievement_rate)
 double total_rate(const std::vector<std::pair<long long, double>>& pairs);
 

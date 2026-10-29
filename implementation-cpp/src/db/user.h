@@ -450,7 +450,7 @@ std::string touch_viewed_shop(long long user_id, long long category, std::option
 // grant.py
 SelectQuery get_character_base(long long user_id, long long base_master_id);
 ExecutableQuery create_character_base(long long user_id, long long row_id, long long base_master_id, std::optional<long long> costume_master_id, long long portal_character_id);
-ExecutableQuery create_character(long long user_id, long long row_id, long long master_id, long long character_base_id);
+ExecutableQuery create_character(long long user_id, long long row_id, long long master_id, long long character_base_id, std::optional<long long> secondary_base_id = std::nullopt, long long secondary_sense_level = 0);
 ExecutableQuery create_accessory(long long user_id, long long row_id, long long master_id, const wire::json& effects);
 ExecutableQuery add_stamina(long long user_id, long long amount);
 ExecutableQuery grant_possession(const std::string& table, const std::string& master_col, long long user_id, long long row_id, long long master_id, const wire::json& extra);

@@ -1,5 +1,6 @@
 #include "home.h"
 
+#include <ctime>
 #include <string>
 
 #include "../headers.h"
@@ -11,6 +12,15 @@ namespace routes {
 namespace {
 
 using wire::json;
+
+// current UTC time as an ISO-8601 string; wire converts a DateTime field's string to a Timestamp
+std::string now_iso() {
+    std::time_t t = std::time(nullptr);
+    std::tm* tm = std::gmtime(&t);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S+00:00", tm);
+    return std::string(buf);
+}
 
 void send(httplib::Response& res, const std::string& body) {
     res.set_content(body, "application/vnd.msgpack");
@@ -34,11 +44,30 @@ void register_home(httplib::Server& svr) {
     });
 
     svr.Post("/api/Home/CheckReceiveLoginBonus", [](const httplib::Request&, httplib::Response& res) {
-        // TODO: build LoginBonusResult[] from masterdata + grant the day's rewards via
-        // things::grant_things (to_inbox=true). blocked: LoginBonusMaster /
-        // LoginBonusDetailMaster / LoginBonusSpineGroupMaster are NOT in our unpacked masterdata
-        // (only LoginBonusSpineCostumeMaster is). return [] (no bonus) rather than a bogus id-0 one.
-        send(res, wire::common_response("LoginBonusResult", json::array()));
+        // the client's login-bonus flow takes an AsyncLock (SemaphoreSlim) and only releases it
+        // after processing at least one structurally-complete LoginBonusResult. an empty array is a
+        // valid array but leaves that lock held forever -> silent deadlock on Main scene init (white
+        // screen + logo, UnityMain stuck in futex_wait, no further requests). return one complete
+        // result so the flow completes. real rewards still need LoginBonusMaster/LoginBonusDetailMaster
+        // (absent from our unpacked masterdata), so nothing is granted yet -- received_things/details
+        // stay empty.
+        json result = json{
+            {"login_bonus_id", 1},
+            {"current_login_count", 1},
+            {"received_things", json::array()},
+            {"title", "ログインボーナス"},
+            {"type", enums::LoginBonusTypes::Normal},
+            {"start_date", now_iso()},
+            {"message_template", "ログインボーナス {0}日目"},
+            {"total_days", 7},
+            {"is_loop", true},
+            {"order", 1},
+            {"details", json::array()},
+            {"layout_type", enums::LoginBonusLayoutTypes::Normal},
+        };
+        json arr = json::array();
+        arr.push_back(result);
+        send(res, wire::common_response("LoginBonusResult", arr));
     });
 
     svr.Post("/api/Home/GetMultiLiveRestrictionNotification",

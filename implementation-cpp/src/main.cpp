@@ -4,6 +4,7 @@
 #include "master_data.h"
 #include "routes.h"
 #include "platform.h"
+#include "helpers/things.h"
 
 void ssl_bypass_init();
 
@@ -81,6 +82,22 @@ static void server_thread() {
                 LOG("Preservation statement skipped: %s", e.what());
             }
         }
+        // link the second idol on any dual-idol cards saved before that was handled
+        int repaired = 0;
+        {
+            auto tx = db::transaction();
+            repaired = things::repair_dual_cards();
+            tx.commit();
+        }
+        if (repaired) LOG("Linked the second idol on %d dual-idol card(s)", repaired);
+        // drop empty live records (clearLamp None_ + achievementRate 0): a real clear always has a
+        // lamp and a scored fail keeps its own rate, so such a row is only an all-miss fail or an
+        // artifact of the earlier over-correction -- removing it lets the song read "not played"
+        // instead of a bogus 0.0%
+        std::string cleared = db::execute(db::ExecutableQuery(
+            "DELETE FROM \"live\" WHERE \"clearLamp\" = 0 AND \"achievementRate\" = 0"));
+        if (!cleared.empty() && cleared != "DELETE 0")
+            LOG("Removed empty live records (%s)", cleared.c_str());
         LOG("Database ready at %s", db_path.c_str());
     } else {
         // non-fatal: still serve assets/master data so the app boots and we can diagnose

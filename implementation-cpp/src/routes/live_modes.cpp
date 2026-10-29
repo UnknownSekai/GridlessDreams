@@ -282,6 +282,45 @@ void start(const httplib::Request& req, httplib::Response& res) {
     }
 }
 
+// ---- /api/Lives/StartMultiLive ----
+void start_multi(const httplib::Request& req, httplib::Response& res) {
+    try {
+        json p = pipeline::read_request(req, "StartMultiLivePayload");
+        if (p.is_null()) throw game_state::Rejected("Missing payload");
+        long long live_master_id = p.value("live_master_id", static_cast<long long>(0));
+        const json* chart = game_state::master("live_master", live_master_id);
+        if (chart == nullptr) throw game_state::Rejected("Invalid live master");
+        game_state::State s = game_state::transaction(req);
+        std::vector<msgpack::object_handle> r = call_bound(req, &routes::lives_start_multi_live);
+        std::optional<nlohmann::json> active = db::fetchrow(
+            db::SelectQuery("ActiveLive", "SELECT * FROM active_live WHERE \"userId\"=$1", s.uid));
+        const json* music =
+            game_state::master("music_master", chart->at("music_master_id").get<long long>());
+        long long xp = 0;
+        if (active.has_value() && active->at("staminaSpent").get<bool>() && music != nullptr) {
+            long long sc = music->at("stamina_consumption").get<long long>();
+            long long ratio = p.value("stamina_consumption_ratio", static_cast<long long>(0));
+            double rank_xp_per_stamina =
+                progression::rules().at("rank_xp_per_stamina").get<double>();
+            xp = static_cast<long long>(static_cast<double>(sc) *
+                                        static_cast<double>(std::max<long long>(1, ratio)) *
+                                        rank_xp_per_stamina);
+        }
+        json extra = json::object();
+        extra["rank_xp"] = xp;
+        progression::context(s, "normal", 0, extra);
+        s.commit();
+        json unit = wire::from_array("LiveUnit", r[1].get());
+        json faults = decode_faults(r[0].get());
+        json present = decode_present(r[2].get());
+        for (const json& e : s.present()) present.push_back(e);
+        pipeline::respond(res, "LiveUnit", unit, faults, present);
+    } catch (const game_state::Rejected& e) {
+        pipeline::respond(res, nullptr, json(nullptr),
+                          json::array({pipeline::fault("InvalidLiveState", e.what())}));
+    }
+}
+
 void apply_progress(game_state::State& s, const std::string& mode, long long ident, long long score,
                     long long acts, bool cleared, json& result) {
     const json* m = game_state::master(
@@ -713,6 +752,7 @@ void install_live_modes(httplib::Server& svr) {
 
     svr.Post("/api/Lives/Start", start);
     svr.Post("/api/Lives/StartConcert", start);
+    svr.Post("/api/Lives/StartMultiLive", start_multi);
     svr.Post("/api/Lives/FinishAndValidate", finish);
     svr.Post("/api/Lives/Retire", retire);
     svr.Post("/api/Lessons/:base/CreateParty",

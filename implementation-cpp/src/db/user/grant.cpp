@@ -42,15 +42,22 @@ ExecutableQuery create_character_base(long long user_id, long long row_id,
 }
 
 ExecutableQuery create_character(long long user_id, long long row_id, long long master_id,
-                                 long long character_base_id) {
+                                 long long character_base_id,
+                                 std::optional<long long> secondary_base_id,
+                                 long long secondary_sense_level) {
+    // dual-idol cards (CharacterMaster.secondary_character_base_master_id set) carry a second
+    // owned CharacterBase; single-idol cards leave it NULL with secondarySenseLevel 0
     return ExecutableQuery(
         "INSERT INTO \"character\" "
-        "(\"userId\", \"id\", \"characterMasterId\", \"characterBaseId\", \"level\", \"senseLevel\", \"selectionType\") "
-        "VALUES ($1, $2, $3, $4, 1, 1, 1)",
+        "(\"userId\", \"id\", \"characterMasterId\", \"characterBaseId\", \"level\", \"senseLevel\", "
+        "\"secondaryCharacterBaseId\", \"secondarySenseLevel\", \"selectionType\") "
+        "VALUES ($1, $2, $3, $4, 1, 1, $5, $6, 1)",
         user_id,
         row_id,
         master_id,
-        character_base_id);
+        character_base_id,
+        secondary_base_id.has_value() ? json(*secondary_base_id) : json(nullptr),
+        secondary_sense_level);
 }
 
 ExecutableQuery create_accessory(long long user_id, long long row_id, long long master_id,

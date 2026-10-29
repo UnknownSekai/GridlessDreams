@@ -57,10 +57,11 @@ def _iter_kind(assets_dir: Path, kind: str, platform: str) -> list[Entry]:
 
 def _plan(assets_dir: Path, platform: str) -> dict[str, list[Entry]]:
     """{'base': [...], 'extra': [...]} for one platform's merged pool"""
+    clf = _portions.Classifier(assets_dir, platform)
     buckets: dict[str, list[Entry]] = {"base": [], "extra": []}
     for kind in _portions.KINDS:
         for e in _iter_kind(assets_dir, kind, platform):
-            buckets["base" if _portions.is_base(e.arcname) else "extra"].append(e)
+            buckets["base" if clf.is_base(e.arcname) else "extra"].append(e)
     return buckets
 
 
@@ -87,6 +88,7 @@ def main() -> None:
                     help="_data/assets populated by download_all_assets")
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help="output dir for portion zips")
     ap.add_argument("--platform", choices=_portions.PLATFORMS, help="limit to one platform")
+    ap.add_argument("--base-only", action="store_true", help="write only base_<platform>.zip")
     ap.add_argument("--dry-run", action="store_true", help="classify + show sizes, write nothing")
     args = ap.parse_args()
 
@@ -104,7 +106,8 @@ def main() -> None:
             print(f"  {portion:4}: {len(entries):>7} files, {size / 1e9:7.2f} GB -> {portion}_{platform}.zip")
         if args.dry_run:
             continue
-        for portion in _portions.PORTIONS:
+        portions = ("base",) if args.base_only else _portions.PORTIONS
+        for portion in portions:
             if buckets[portion]:
                 _write_zip(buckets[portion], args.out / f"{portion}_{platform}.zip")
 

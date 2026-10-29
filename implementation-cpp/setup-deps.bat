@@ -47,6 +47,8 @@ if not exist external\miniz (
     del miniz.zip
     cd ..\..
 )
+REM miniz 3.0.2 needs a zip64 central-dir fix to mount base/extra portion zips (idempotent)
+python patch_miniz.py
 
 if not exist external\lz4 (
     echo [*] Cloning lz4...

@@ -11,13 +11,11 @@ This project may receive infrequent updates. Issues and pull requests welcome.
 
 A fully open-source **offline** archive of a certain EOSed mobile theatre idol rhythm game (v2.31.3 - released 2026). Yes, you can play it without internet!
 
-This project is a culmination of ALL my knowledge. If you enjoy it, please **⭐ Star** the repo.
-
 > The C++ implementation is translated from server-of-dreams using Claude.
 
 # Downloads
 
-**[Latest Release](https://github.com/UntitledCharts/GridlessDreams/releases/latest)** - check back here for updates!
+**[Latest Release](https://github.com/UnknownSekai/GridlessDreams/releases/latest)** - check back here for updates!
 
 > [!TIP]
 > If you wish to be notified of updates, **👁️ Watch** the project and get emails for every release.
@@ -35,7 +33,7 @@ A full install of ALL assets for this game is approximately *? GB*. To mitigate 
 
 For file sizes and hashes, please refer to [HASHES.md](HASHES.md).
 
-*GridlessDreams is in development.*
+*GridlessDreams is in development and is not ready.*
 
 Any mirrors are appreciated, please open an issue to have them added (must include ALL iOS and Android assets)
 
@@ -44,6 +42,6 @@ Refer to [INSTALL.md](INSTALL.md)
 
 # Issues
 
-Found a bug or have a suggestion? [Open an issue](https://github.com/UntitledCharts/GridlessDreams/issues)!
+Found a bug or have a suggestion? [Open an issue](https://github.com/UnknownSekai/GridlessDreams/issues)!
 
 Sending your logs may be useful. See [LOGS.md](LOGS.md) for more info.

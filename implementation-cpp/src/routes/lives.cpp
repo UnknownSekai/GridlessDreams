@@ -38,6 +38,7 @@ using db::user::delete_active_lives;
 using db::user::get_active_live;
 using db::user::get_lives;
 using db::user::get_music_bookmarks;
+using db::user::get_partys;
 using db::user::get_sp_rates;
 using db::user::get_users;
 using db::user::next_live_id;
@@ -138,18 +139,28 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     long long before_lamp =
         existing != nullptr ? existing->at("clearLamp").get<long long>() : enums::ClearLamps::None_;
     double prev_rate = existing != nullptr ? existing->at("achievementRate").get<double>() : 0.0;
-    // auto-play clears don't set records: the client auto-hits every note PERFECT*, which would
-    // otherwise bank a 101% all perfect. an auto run still counts as a play and still drops
-    // rewards, but the saved lamp/rate/grade (and the result screen) keep the prior best
+    // a finish records two separable things. the score -- achievement rate + grade -- is kept on
+    // any manual play, a failed one (life hit 0) included; the game still shows it. the rating --
+    // the chart/player live rate, the clear lamp and SpRate -- is only earned by a clear, so a
+    // fail shows "算出されません" for those. an auto-play run banks neither (it would otherwise
+    // hand out a free 101% all perfect); both still count as a play and still drop rewards
     bool auto_play = active.has_value() ? active->value("isAutoPlay", false) : false;
-    bool is_high_score = this_rate > prev_rate && !auto_play;
+    bool score_counts = !auto_play;                 // achievement rate + grade (kept even on a fail)
+    bool rating_counts = is_cleared && !auto_play;  // live rate, clear lamp, SpRate
+    bool is_high_score = score_counts && this_rate > prev_rate;
 
-    long long best_lamp = auto_play ? before_lamp : std::max<long long>(before_lamp, new_lamp);  // worst..best int order
-    double best_rate = auto_play ? prev_rate : std::max(prev_rate, this_rate);
+    long long best_lamp =
+        rating_counts ? std::max<long long>(before_lamp, new_lamp) : before_lamp;  // worst..best int order
+    double best_rate = score_counts ? std::max(prev_rate, this_rate) : prev_rate;
     long long best_grade = live_result::rate_grade(best_rate);
+    // the rate this run feeds into live-rate math: the real figure on a counted clear, otherwise
+    // the prior best (so a fail / auto play moves no rating)
+    double effective_rate = rating_counts ? this_rate : prev_rate;
     long long times = (existing != nullptr ? existing->at("timesCompleted").get<long long>() : 0) + 1;
-    // notation_rate is the chart's (best) live rate: level + interpolated achievement bonus
-    double notation_rate = live_rate::chart_live_rate(live_master_id, best_rate).value_or(0.0);
+    // the chart's live rate (the rating) only moves on a clear; a fail keeps the prior value
+    double notation_rate =
+        rating_counts ? live_rate::chart_live_rate(live_master_id, best_rate).value_or(0.0)
+                      : (existing != nullptr ? existing->at("notationRate").get<double>() : 0.0);
 
     // the owned Live row's fields that this finish doesn't change carry over (or default)
     long long live_id = existing != nullptr ? existing->at("id").get<long long>() : 0;
@@ -158,7 +169,9 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     if (existing != nullptr) {
         db::execute(update_live_result(*user_id, live_master_id, times, best_rate, notation_rate,
                                        best_lamp, best_grade));
-    } else if (live_master_id) {
+    } else if (live_master_id && score_counts) {
+        // a manual play (clear or fail) mints the record so its achievement rate is kept; an auto
+        // play banks nothing, so it leaves no row behind
         std::optional<db::json> id_row = db::fetchrow(next_live_id());
         live_id = id_row.has_value() ? id_row->at("value").get<long long>() : live_master_id;
         json row = json::object();
@@ -175,9 +188,10 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
 
     db::execute(delete_active_lives(*user_id));  // consume the session
 
-    // the updated owned Live row goes in present so the client's records reflect it
+    // the updated owned Live row goes in present so the client's records reflect it (only when a
+    // row was actually written -- an existing record, or a counted clear)
     json present = json::array();
-    if (live_master_id) {
+    if (live_master_id && (existing != nullptr || score_counts)) {
         json live_row = json::object();
         live_row["userId"] = *user_id;
         live_row["id"] = live_id;
@@ -221,30 +235,32 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     // play. the profile's playerRate IS that top-30 total, so keep it in sync when it moves.
     // (0.0, 0.0) for charts with no live rate (Olivier / long-version) -- not null
     std::pair<double, double> lr =
-        live_rate::chart_live_rate_result(live_master_id, this_rate, prev_rate);
+        live_rate::chart_live_rate_result(live_master_id, effective_rate, prev_rate);
     json live_rate_result = json::object();
     live_rate_result["best_ever"] = lr.first;
     live_rate_result["this_time"] = lr.second;
-    std::vector<std::pair<long long, double>> before_pairs;
+    // the player rate is the top-30 of the stored per-chart live rates (notationRate), which only
+    // a clear moves -- so a fail keeps its contribution unchanged (rating not given)
+    std::vector<double> before_notations;
+    for (const db::json& r : lives) before_notations.push_back(r.at("notationRate").get<double>());
+    double total_before = live_rate::total_of_live_rates(before_notations);
+    std::vector<double> after_notations;
     for (const db::json& r : lives)
-        before_pairs.emplace_back(r.at("liveMasterId").get<long long>(),
-                                  r.at("achievementRate").get<double>());
-    double total_before = live_rate::total_rate(before_pairs);
-    std::vector<std::pair<long long, double>> after_pairs;
-    for (const db::json& r : lives) {
         if (r.at("liveMasterId").get<long long>() != live_master_id)
-            after_pairs.emplace_back(r.at("liveMasterId").get<long long>(),
-                                     r.at("achievementRate").get<double>());
-    }
-    if (live_master_id) after_pairs.emplace_back(live_master_id, best_rate);
-    double total_after = live_rate::total_rate(after_pairs);
+            after_notations.push_back(r.at("notationRate").get<double>());
+    if (live_master_id && (existing != nullptr || score_counts))
+        after_notations.push_back(notation_rate);
+    double total_after = live_rate::total_of_live_rates(after_notations);
     if (total_after != total_before) db::execute(update_player_rate(*user_id, total_after));
 
     // Olivier (difficulty 5) clears award star-badge points (SpRate) instead of a live
     // rate: keep the chart's best points and report the before/after per-chart + total
     json sp_rate_update_result = nullptr;
-    std::optional<int> this_points = live_rate::olivier_sp_rate_points(
-        live_master_id, this_rate, new_lamp, live_result::non_perfect_star_count(base_blocks));
+    std::optional<int> this_points =
+        rating_counts ? live_rate::olivier_sp_rate_points(
+                            live_master_id, this_rate, new_lamp,
+                            live_result::non_perfect_star_count(base_blocks))
+                      : std::nullopt;
     if (this_points.has_value()) {
         std::vector<db::json> sp_rows = db::fetch(get_sp_rates(*user_id));
         const db::json* existing_sp = nullptr;
@@ -303,15 +319,17 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
         for (const json& e : extra) present.push_back(e);
     }
 
-    // an auto-play run is reported as no improvement (see the record cap above), so the result
-    // panel shows the saved best rather than a fresh all perfect
-    long long result_lamp = auto_play ? best_lamp : new_lamp;
-    double result_rate = auto_play ? best_rate : this_rate;
+    // the result panel mirrors the save: a manual run reports its own achievement rate + grade (a
+    // fail included), an auto play reports the prior best (no fresh all perfect), and only a clear
+    // shows a clear lamp. the live rate / SpRate are untouched by a fail, so the client renders
+    // "算出されません" for the rating while still showing the achievement rate
+    long long result_lamp = score_counts ? new_lamp : before_lamp;
+    double display_rate = score_counts ? this_rate : prev_rate;
 
     json rate_result = json::object();
     json ach_result = json::object();
     ach_result["best_ever"] = round4(prev_rate);  // best_ever = past best only
-    ach_result["this_time"] = round4(result_rate);
+    ach_result["this_time"] = round4(display_rate);
     rate_result["achievement_rate_result"] = ach_result;
     rate_result["live_rate_result"] = live_rate_result;
     rate_result["total_rate_before"] = total_before;
@@ -329,7 +347,7 @@ void lives_finish_and_validate(const httplib::Request& req, httplib::Response& r
     json result = json::object();
     result["clear_lamp"] = result_lamp;
     result["before_clear_lamp"] = before_lamp;
-    result["rate_grade"] = live_result::rate_grade(result_rate);
+    result["rate_grade"] = live_result::rate_grade(display_rate);
     result["is_high_score"] = is_high_score;
     result["achievement_rate_average"] = 0.0;  // TODO: add global average acc
     result["rate_result"] = rate_result;
@@ -385,6 +403,46 @@ void lives_start(const httplib::Request& req, httplib::Response& res) {
                                        live_setting_master_id, stamina_spent,
                                        payload.value("is_auto_play", false)));
         if (user.has_value()) present.push_back(user_data::data_object("User", *user));
+    }
+    pipeline::respond(res, "LiveUnit", unit, json::array(), present);
+}
+
+// /api/Lives/StartMultiLive
+void lives_start_multi_live(const httplib::Request& req, httplib::Response& res) {
+    std::optional<long long> user_id = user_data::current_user_id(req);
+    json payload = pipeline::read_request(req, "StartMultiLivePayload");
+    json present = json::array();
+    json unit = json::object();
+    if (user_id.has_value() && !payload.is_null()) {
+        std::optional<db::json> user = db::fetchrow(get_users(*user_id));
+        bool stamina_spent = false;
+        long long live_master_id = pint(payload, "live_master_id");
+        // long-version songs never consume stamina
+        if (user.has_value() && payload.value("use_stamina", false) &&
+            !_is_long_version(live_master_id)) {
+            long long cost = _stamina_cost(live_master_id, pint(payload, "stamina_consumption_ratio"));
+            if (cost > 0 && stamina::adjust_and_check_stamina(
+                                *user_id, -cost, user->at("playerRank").get<long long>())) {
+                stamina_spent = true;
+                user = db::fetchrow(get_users(*user_id));  // reflect spent stamina
+            }
+        }
+        long long party_id = pint(payload, "party_id");
+        if (!party_id) {
+            std::vector<db::json> parties = db::fetch(get_partys(*user_id));
+            party_id = !parties.empty() ? parties[0].at("id").get<long long>() : 1;
+        }
+        // the active room would set liveSettingMasterId; without the realtime registry fall back
+        // to the standard multi-live hall (11: Sirius)
+        long long live_setting_master_id = 11;
+        db::execute(delete_active_lives(*user_id));  // one active live per user
+        std::pair<json, long long> built = live::build_live_unit(*user_id, party_id, live_master_id);
+        unit = built.first;
+        long long live_id = built.second;
+        db::execute(create_active_live(*user_id, live_id, live_master_id, party_id,
+                                       live_setting_master_id, stamina_spent));
+        if (user.has_value() && stamina_spent)
+            present.push_back(user_data::data_object("User", *user));
     }
     pipeline::respond(res, "LiveUnit", unit, json::array(), present);
 }
@@ -580,12 +638,7 @@ void register_lives(httplib::Server& svr) {
     });
 
     // /api/Lives/StartMultiLive
-    svr.Post("/api/Lives/StartMultiLive", [](const httplib::Request& req, httplib::Response& res) {
-        pipeline::read_request(req, "StartMultiLivePayload");
-        // scripted: time_events = build_live_time_event(conn, user_id, party_id,
-        //   music_master_id, league_master.sense_notation_master_id)  # league/multi source TBD
-        pipeline::respond(res, "LiveUnit", json::object());
-    });
+    svr.Post("/api/Lives/StartMultiLive", lives_start_multi_live);
 
     // /api/Lives/StartMultiRoomLive
     svr.Post("/api/Lives/StartMultiRoomLive",

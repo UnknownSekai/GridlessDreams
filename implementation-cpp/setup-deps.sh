@@ -46,6 +46,8 @@ if [ ! -f "external/miniz/miniz.h" ]; then
     rm miniz.zip
     cd ../..
 fi
+# miniz 3.0.2 needs a zip64 central-dir fix to mount base/extra portion zips (idempotent)
+python patch_miniz.py
 
 if [ ! -d "external/lz4" ]; then
     echo "[*] Cloning lz4..."

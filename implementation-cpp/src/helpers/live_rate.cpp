@@ -154,18 +154,23 @@ std::optional<double> chart_live_rate(long long live_master_id, double rate) {
     return live_rate(static_cast<int>(lm->at("level").get<long long>()), rate);
 }
 
-double total_rate(const std::vector<std::pair<long long, double>>& pairs) {
-    std::vector<double> rates;
-    for (const auto& [mid, rate] : pairs) {
-        std::optional<double> r = chart_live_rate(mid, rate);
-        if (r) rates.push_back(*r);
-    }
-    std::sort(rates.begin(), rates.end(), std::greater<double>());
+double total_of_live_rates(const std::vector<double>& rates) {
+    std::vector<double> vals;
+    for (double r : rates)
+        if (r != 0.0) vals.push_back(r);  // python `if r`: None / 0 contribute nothing
+    std::sort(vals.begin(), vals.end(), std::greater<double>());
     double sum = 0.0;
-    std::size_t n = std::min<std::size_t>(rates.size(), kTopN);
-    for (std::size_t i = 0; i < n; ++i) sum += rates[i];
+    std::size_t n = std::min<std::size_t>(vals.size(), kTopN);
+    for (std::size_t i = 0; i < n; ++i) sum += vals[i];
     // python round(x, 2): nearest 0.01, ties to even
     return std::nearbyint(sum * 100.0) / 100.0;
+}
+
+double total_rate(const std::vector<std::pair<long long, double>>& pairs) {
+    std::vector<double> rates;
+    for (const auto& [mid, rate] : pairs)
+        rates.push_back(chart_live_rate(mid, rate).value_or(0.0));  // none -> 0, filtered below
+    return total_of_live_rates(rates);
 }
 
 std::pair<double, double> chart_live_rate_result(long long live_master_id, double this_rate,

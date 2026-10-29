@@ -126,30 +126,56 @@ json _received_thing(long long type, long long thing_id, long long quantity) {
     return rt;
 }
 
+// the id of the user's CharacterBase for base_master_id (shared across a character's variants),
+// creating it on first use
+long long _owned_base(long long user_id, long long base_master_id, long long character_master_id) {
+    auto existing = db::fetchrow(db::user::get_character_base(user_id, base_master_id));
+    if (existing) return existing->at("id").get<long long>();
+    long long base_id = _random_id();
+    const json* bm = _lookup("CharacterBaseMaster", base_master_id);
+    std::optional<long long> costume =
+        bm ? std::optional<long long>(bm->at("default_costume_master_id").get<long long>())
+           : std::nullopt;
+    db::execute(db::user::create_character_base(user_id, base_id, base_master_id, costume,
+                                                character_master_id));
+    return base_id;
+}
+
+// CharacterMaster.secondary_character_base_master_id if set (dual-idol cards), else none
+std::optional<long long> _secondary_master(const json* master) {
+    if (!master) return std::nullopt;
+    auto it = master->find("secondary_character_base_master_id");
+    if (it == master->end() || it->is_null()) return std::nullopt;
+    return it->get<long long>();
+}
+
 void _grant_character(long long user_id, long long character_master_id) {
-    // Character.characterBaseId points at an owned CharacterBase (shared across a
-    // character's variants); resolve it via CharacterMaster.character_base_master_id
+    // Character.characterBaseId points at an owned CharacterBase; resolve it via
+    // CharacterMaster.character_base_master_id. dual-idol cards also carry a second idol
+    // (secondary_character_base_master_id) -- without its CharacterBase the client hangs on
+    // the party edit/view screens, so link it here too
     const json* master = _lookup("CharacterMaster", character_master_id);
     std::optional<long long> base_master_id =
         master ? std::optional<long long>(master->at("character_base_master_id").get<long long>())
                : std::nullopt;
+    std::optional<long long> secondary_master_id = _secondary_master(master);
     long long base_id = 0;
-    if (base_master_id) {
-        auto existing = db::fetchrow(db::user::get_character_base(user_id, *base_master_id));
-        if (existing) {
-            base_id = existing->at("id").get<long long>();
-        } else {
-            base_id = _random_id();
-            const json* bm = _lookup("CharacterBaseMaster", *base_master_id);
-            std::optional<long long> costume =
-                bm ? std::optional<long long>(
-                         bm->at("default_costume_master_id").get<long long>())
-                   : std::nullopt;
-            db::execute(db::user::create_character_base(user_id, base_id, *base_master_id, costume,
-                                                        character_master_id));
-        }
+    if (base_master_id) base_id = _owned_base(user_id, *base_master_id, character_master_id);
+    std::optional<long long> secondary_id;
+    if (secondary_master_id)
+        secondary_id = _owned_base(user_id, *secondary_master_id, character_master_id);
+    db::execute(db::user::create_character(user_id, _random_id(), character_master_id, base_id,
+                                           secondary_id, secondary_id ? 1 : 0));
+}
+
+// {character_master_id: secondary_character_base_master_id} for dual-idol cards
+std::vector<std::pair<long long, long long>> _dual_masters() {
+    std::vector<std::pair<long long, long long>> out;
+    for (const json& m : master_data::table("CharacterMaster")) {
+        std::optional<long long> secondary = _secondary_master(&m);
+        if (secondary) out.emplace_back(m.at("id_").get<long long>(), *secondary);
     }
-    db::execute(db::user::create_character(user_id, _random_id(), character_master_id, base_id));
+    return out;
 }
 
 void _grant_accessory(long long user_id, long long accessory_master_id) {
@@ -269,6 +295,39 @@ std::vector<json> grant_things_consolidated(long long user_id,
     for (const auto& o : others)
         received.push_back(grant_thing(user_id, std::get<0>(o), std::get<1>(o), std::get<2>(o)));
     return received;
+}
+
+int repair_dual_cards() {
+    // older grants left secondaryCharacterBaseId NULL on dual-idol cards, which hangs the party
+    // screens; link the second idol on every saved card that is still missing it
+    std::vector<std::pair<long long, long long>> duals = _dual_masters();
+    if (duals.empty()) return 0;
+    std::unordered_map<long long, long long> secondary_of;
+    std::vector<long long> master_ids;
+    master_ids.reserve(duals.size());
+    for (const auto& d : duals) {
+        secondary_of[d.first] = d.second;
+        master_ids.push_back(d.first);
+    }
+    std::vector<db::json> rows = db::fetch(db::SelectQuery(
+        "CharacterModel",
+        "SELECT \"userId\", \"id\", \"characterMasterId\" FROM \"character\" "
+        "WHERE \"secondaryCharacterBaseId\" IS NULL AND \"characterMasterId\" IN "
+        "(SELECT value FROM json_each($1))",
+        master_ids));
+    for (const db::json& row : rows) {
+        long long uid = row.at("userId").get<long long>();
+        long long master_id = row.at("characterMasterId").get<long long>();
+        long long base_id = _owned_base(uid, secondary_of[master_id], master_id);
+        db::execute(db::ExecutableQuery(
+            "UPDATE \"character\" SET \"secondaryCharacterBaseId\" = $3, "
+            "\"secondarySenseLevel\" = MAX(\"secondarySenseLevel\", 1) "
+            "WHERE \"userId\" = $1 AND \"id\" = $2 AND \"secondaryCharacterBaseId\" IS NULL",
+            uid,
+            row.at("id").get<long long>(),
+            base_id));
+    }
+    return static_cast<int>(rows.size());
 }
 
 }  // namespace things

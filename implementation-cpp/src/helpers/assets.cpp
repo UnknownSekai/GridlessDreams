@@ -260,14 +260,31 @@ bool local_assets_enabled() {
     return config::get_bool("local_assets");
 }
 
+// a bundle filename identifies the same content regardless of which kind-host serves it, and
+// asset groups are kind-exclusive, so a given <group>/<file> path lives under at most one kind.
+// the client probes 2d->3d->cri for a bundle and uses the first hit, so a bundle that lives only
+// under one kind (e.g. cri-only adventure se/voice/acb) must be served for a request to ANY kind --
+// otherwise the offline server 302s the probe to the official CDN. try the requested kind first,
+// then the others in probe order.
 std::optional<BodyMd5> bundle(const std::string& kind, const std::string& plat,
                               const std::string& rel_path) {
-    std::vector<std::string> base = {"_data", "assets", kind, ascii_lower(plat)};
-    std::string full;
-    if (!resolve_within(base, rel_path, full)) return std::nullopt;
-    std::string body = platform::read_file(full);
-    if (body.empty()) return std::nullopt;
-    return BodyMd5{body, content_md5(body)};
+    static const char* const KINDS[] = {"2d-assets", "3d-assets", "cri-assets"};
+    const std::string lplat = ascii_lower(plat);
+    auto try_kind = [&](const std::string& k) -> std::optional<BodyMd5> {
+        std::vector<std::string> base = {"_data", "assets", k, lplat};
+        std::string full;
+        if (!resolve_within(base, rel_path, full)) return std::nullopt;
+        std::string body = platform::read_file(full);
+        if (body.empty()) return std::nullopt;
+        return BodyMd5{body, content_md5(body)};
+    };
+    if (std::optional<BodyMd5> hit = try_kind(kind)) return hit;
+    for (const char* k : KINDS) {
+        if (kind != k) {
+            if (std::optional<BodyMd5> hit = try_kind(k)) return hit;
+        }
+    }
+    return std::nullopt;
 }
 
 std::string official_url(const std::string& kind, const std::string& plat,

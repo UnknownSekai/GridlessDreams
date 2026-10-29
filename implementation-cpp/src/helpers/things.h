@@ -31,4 +31,8 @@ std::vector<json> grant_things(long long user_id, const std::vector<ThingTriple>
 // one ReceivedThing per distinct resource
 std::vector<json> grant_things_consolidated(long long user_id, const std::vector<ThingTriple>& things);
 
+// link the second idol on saved dual-idol cards missing it (older grants left it NULL, which
+// hangs the party screens); run once at startup, returns the count fixed
+int repair_dual_cards();
+
 }  // namespace things
